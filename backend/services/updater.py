@@ -20,7 +20,9 @@ import requests
 
 logger = logging.getLogger(__name__)
 
-GITHUB_RELEASES_URL = "https://api.github.com/repos/BigBodyCobain/Shadowbroker/releases/latest"
+# Upstream Shadowbroker URL disabled — Palomar has its own release process.
+# GITHUB_RELEASES_URL = "https://api.github.com/repos/BigBodyCobain/Shadowbroker/releases/latest"
+GITHUB_RELEASES_URL = None
 
 # ---------------------------------------------------------------------------
 # Protected patterns — files/dirs that must NEVER be overwritten during update

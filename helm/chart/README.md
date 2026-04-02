@@ -1,6 +1,6 @@
-# ShadowBroker Helm Chart
+# Palomar Helm Chart
 
-A Helm chart for deploying ShadowBroker services (backend and frontend).
+A Helm chart for deploying Palomar services (backend and frontend).
 
 ## Prerequisites
 
@@ -27,14 +27,14 @@ helm repo update
 ### Install the chart
 
 ```bash
-helm install shadowbroker ./chart --create-namespace
+helm install palomar ./chart --create-namespace
 ```
 
 Or use the repository:
 
 ```bash
-helm install shadowbroker bjw-s-labs/app-template \
-  --namespace shadowbroker \
+helm install palomar bjw-s-labs/app-template \
+  --namespace palomar \
   -f values.yaml
 ```
 
@@ -51,7 +51,7 @@ The backend deployment runs with the following settings by default:
 | `controllers.backend.rollingUpdate.unavailable` | Max unavailable during update | `1` |
 | `controllers.backend.containers.main.runAsUser` | Security context user | `1001` |
 | `controllers.backend.containers.main.runAsGroup` | Security context group | `1001` |
-| `controllers.backend.containers.main.image.repository` | Container image | `ghcr.io/bigbodycobain/shadowbroker-backend` |
+| `controllers.backend.containers.main.image.repository` | Container image | `ghcr.io/bigbodycobain/palomar-backend` |
 | `controllers.backend.containers.main.image.tag` | Container tag | `latest` |
 | `controllers.backend.service.type` | Service type | `ClusterIP` |
 | `controllers.backend.service.ports.http.port` | HTTP port | `8000` |
@@ -77,7 +77,7 @@ The frontend deployment configuration:
 | `controllers.frontend.rollingUpdate.unavailable` | Max unavailable during update | `1` |
 | `controllers.frontend.containers.main.runAsUser` | Security context user | `1001` |
 | `controllers.frontend.containers.main.runAsGroup` | Security context group | `1001` |
-| `controllers.frontend.containers.main.image.repository` | Container image | `ghcr.io/bigbodycobain/shadowbroker-frontend` |
+| `controllers.frontend.containers.main.image.repository` | Container image | `ghcr.io/bigbodycobain/palomar-frontend` |
 | `controllers.frontend.containers.main.image.tag` | Container tag | `latest` |
 
 #### Frontend Environment Variables
@@ -96,7 +96,7 @@ The frontend deployment configuration:
 ## Uninstall
 
 ```bash
-helm uninstall shadowbroker -n shadowbroker
+helm uninstall palomar -n palomar
 ```
 
 ## Development

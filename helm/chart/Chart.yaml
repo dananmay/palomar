@@ -1,12 +1,12 @@
 ---
 apiVersion: v2
-name: shadowbroker
+name: palomar
 version: 0.0.1
-description: simple shadowbroker installation
+description: simple palomar installation
 type: application
 
 dependencies:
   - name: app-template
-    alias: shadowbroker
+    alias: palomar
     version: ~4
     repository: https://bjw-s-labs.github.io/helm-charts/

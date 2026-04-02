@@ -11,7 +11,7 @@ Sources:
 
 Both sources are published under Spain's open data framework (Ley 37/2007 and
 EU PSI Directive 2019/1024). Free reuse with attribution required — source is
-credited via source_agency field which surfaces in the Shadowbroker UI.
+credited via source_agency field which surfaces in the Palomar UI.
 
 Author: Alborz Nazari (github.com/AlborzNazari)
 """

@@ -2,7 +2,7 @@ services:
   backend:
     build:
       context: ./backend
-    container_name: shadowbroker-backend
+    container_name: palomar-backend
     ports:
       - "8000:8000"
     environment:
@@ -30,7 +30,7 @@ services:
   frontend:
     build:
       context: ./frontend
-    container_name: shadowbroker-frontend
+    container_name: palomar-frontend
     ports:
       - "3000:3000"
     environment:

@@ -1,4 +1,4 @@
-shadowbroker:
+palomar:
   controllers:
 
     backend:
@@ -13,20 +13,20 @@ shadowbroker:
             runAsGroup: 1001
           image:
             pullPolicy: Always
-            repository: ghcr.io/bigbodycobain/shadowbroker-backend
+            repository: ghcr.io/bigbodycobain/palomar-backend
             tag: latest
           env:
             AIS_API_KEY:
               secretKeyRef:
-                name: shadowbroker-env
+                name: palomar-env
                 key: AIS_API_KEY
             OPENSKY_CLIENT_ID:
               secretKeyRef:
-                name: shadowbroker-env
+                name: palomar-env
                 key: OPENSKY_CLIENT_ID
             OPENSKY_CLIENT_SECRET:
               secretKeyRef:
-                name: shadowbroker-env
+                name: palomar-env
                 key: OPENSKY_CLIENT_SECRET
 
     frontend:
@@ -41,11 +41,11 @@ shadowbroker:
             runAsGroup: 1001
           image:
             pullPolicy: Always
-            repository: ghcr.io/bigbodycobain/shadowbroker-frontend
+            repository: ghcr.io/bigbodycobain/palomar-frontend
             tag: latest
 
           env:
-            BACKEND_URL: 'http://shadowbroker-backend.shadowbroker.svc.cluster.local:8000'
+            BACKEND_URL: 'http://palomar-backend.palomar.svc.cluster.local:8000'
 
   service:
     backend:

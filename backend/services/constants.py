@@ -1,4 +1,4 @@
-# ─── ShadowBroker Backend Constants ──────────────────────────────────────────
+# ─── Palomar Backend Constants ───────────────────────────────────────────────
 # Centralized magic numbers. Import from here instead of hardcoding.
 
 # ─── Flight Trails ──────────────────────────────────────────────────────────

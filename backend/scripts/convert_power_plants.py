@@ -20,7 +20,7 @@ OUT_PATH = Path(__file__).parent.parent / "data" / "power_plants.json"
 
 def main() -> None:
     print(f"Downloading WRI Global Power Plant Database from GitHub...")
-    req = urllib.request.Request(CSV_URL, headers={"User-Agent": "ShadowBroker-OSINT/1.0"})
+    req = urllib.request.Request(CSV_URL, headers={"User-Agent": "Palomar-OSINT/1.0"})
     with urllib.request.urlopen(req, timeout=60) as resp:
         raw = resp.read().decode("utf-8")
 

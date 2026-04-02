@@ -57,7 +57,7 @@ def fetch_with_curl(url, method="GET", json_data=None, timeout=15, headers=None)
     both Python requests and the barebones Windows system curl.
     """
     default_headers = {
-        "User-Agent": "ShadowBroker-OSINT/1.0 (live-risk-dashboard)",
+        "User-Agent": "Palomar-OSINT/1.0 (live-risk-dashboard)",
     }
     if headers:
         default_headers.update(headers)

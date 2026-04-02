@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Zap, Ship, Download, Shield, Bug, Heart } from "lucide-react";
 
 const CURRENT_VERSION = "0.9.5";
-const STORAGE_KEY = `shadowbroker_changelog_v${CURRENT_VERSION}`;
+const STORAGE_KEY = `palomar_changelog_v${CURRENT_VERSION}`;
 
 const NEW_FEATURES = [
     {
@@ -109,7 +109,7 @@ const ChangelogModal = React.memo(function ChangelogModal({ onClose }: Changelog
                                     </h2>
                                 </div>
                                 <p className="text-[9px] text-[var(--text-muted)] font-mono tracking-widest mt-1">
-                                    SHADOWBROKER INTELLIGENCE PLATFORM UPDATE
+                                    PALOMAR INTELLIGENCE PLATFORM UPDATE
                                 </p>
                             </div>
                             <button

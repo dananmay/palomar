@@ -1,8 +1,8 @@
 @echo off
-title ShadowBroker - Global Threat Intercept
+title Palomar - OSINT Intelligence Platform
 
 echo ===================================================
-echo     S H A D O W B R O K E R   --   STARTUP
+echo     P A L O M A R   --   STARTUP
 echo ===================================================
 echo.
 

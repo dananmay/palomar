@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { X, ExternalLink, Key, Shield, Radar, Globe, Satellite, Ship, Radio } from "lucide-react";
 
-const STORAGE_KEY = "shadowbroker_onboarding_complete";
+const STORAGE_KEY = "palomar_onboarding_complete";
 
 const API_GUIDES = [
     {

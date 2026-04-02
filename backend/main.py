@@ -135,7 +135,7 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
     stop_carrier_tracker()
 
-app = FastAPI(title="Live Risk Dashboard API", lifespan=lifespan)
+app = FastAPI(title="Palomar API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

@@ -34,27 +34,9 @@ export default function TopRightControls() {
     }, []);
 
     const checkForUpdates = async () => {
-        setUpdateStatus("checking");
-        try {
-            const res = await fetch("https://api.github.com/repos/BigBodyCobain/Shadowbroker/releases/latest");
-            if (!res.ok) throw new Error("Failed to fetch");
-            const data = await res.json();
-
-            const latest = data.tag_name?.replace("v", "") || data.name?.replace("v", "");
-            const current = currentVersion.replace("v", "");
-
-            if (latest && latest !== current) {
-                setLatestVersion(latest);
-                setUpdateStatus("available");
-            } else {
-                setUpdateStatus("uptodate");
-                setTimeout(() => setUpdateStatus("idle"), 3000);
-            }
-        } catch (err) {
-            console.error("Update check failed:", err);
-            setUpdateStatus("error");
-            setTimeout(() => setUpdateStatus("idle"), 3000);
-        }
+        // Upstream Shadowbroker release checker disabled — Palomar has its own release process.
+        setUpdateStatus("uptodate");
+        setTimeout(() => setUpdateStatus("idle"), 3000);
     };
 
     const startRestartPolling = () => {
@@ -138,15 +120,6 @@ export default function TopRightControls() {
                     </button>
 
                     <a
-                        href="https://github.com/BigBodyCobain/Shadowbroker/releases/latest"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-md hover:border-[var(--text-muted)] transition-all text-[10px] text-[var(--text-muted)] font-mono tracking-widest"
-                    >
-                        <ExternalLink size={12} />
-                        MANUAL DOWNLOAD
-                    </a>
-
                     <button
                         onClick={() => setUpdateStatus("available")}
                         className="w-full flex items-center justify-center px-3 py-1.5 text-[9px] text-[var(--text-muted)] font-mono tracking-widest hover:text-[var(--text-secondary)] transition-colors"
@@ -178,15 +151,6 @@ export default function TopRightControls() {
                         <RefreshCw size={12} />
                         TRY AGAIN
                     </button>
-                    <a
-                        href="https://github.com/BigBodyCobain/Shadowbroker/releases/latest"
-                        target="_blank"
-                        rel="noreferrer"
-                        className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[var(--bg-secondary)]/50 border border-[var(--border-primary)] rounded-md hover:border-[var(--text-muted)] transition-all text-[10px] text-[var(--text-muted)] font-mono tracking-widest"
-                    >
-                        <ExternalLink size={12} />
-                        MANUAL DOWNLOAD
-                    </a>
                 </div>
             </div>
         </div>
@@ -196,7 +160,7 @@ export default function TopRightControls() {
         <div className="relative flex items-center gap-2 mb-1 justify-end">
             {/* Discussions link */}
             <a
-                href="https://github.com/BigBodyCobain/Shadowbroker/discussions"
+                href="https://github.com/palomar-osint/palomar/discussions"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 bg-[var(--bg-primary)]/50 backdrop-blur-md border border-[var(--border-primary)] rounded-lg hover:border-cyan-500/50 hover:bg-[var(--hover-accent)] transition-all text-[10px] text-[var(--text-secondary)] font-mono cursor-pointer"

@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "WORLDVIEW // ORBITAL TRACKING",
-  description: "Advanced Geopolitical Risk Dashboard",
+  title: "Palomar // OSINT Intelligence Platform",
+  description: "Real-time OSINT platform with AI intelligence analysis",
 };
 
 export default function RootLayout({
