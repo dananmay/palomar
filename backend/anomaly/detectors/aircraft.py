@@ -1,16 +1,19 @@
-"""Aircraft anomaly detector — 6 rules for Tier 1 detection.
+"""Aircraft anomaly detector — 8 rules for Tier 1 detection.
 
 Rules:
 1. emergency_squawk — Squawk 7500 (hijack), 7600 (radio failure), 7700 (emergency)
 2. military_concentration — Unusual number of military aircraft in a grid cell
-3. gps_jamming_escalation — New or worsening GPS jamming zones
+3. gps_jamming_escalation — Persistent high-severity GPS jamming zones
 4. unusual_holding — Holding pattern far from any airport
-5. aircraft_disappearance — Military/tracked aircraft vanishes between cycles
+5. aircraft_disappearance — Military recon/cargo/tanker aircraft vanishes between cycles
 6. speed_altitude_anomaly — Impossible speed or altitude for aircraft type
+7. unusual_military_type — New military aircraft type appears in a grid cell
+8. military_tanker_surge — Surge in cargo/tanker military aircraft in a grid cell
 """
 from __future__ import annotations
 
 import logging
+import time
 from anomaly.models import Anomaly, Severity
 from anomaly.baselines import RollingBaseline
 from anomaly.rules import grid_key, is_near_airport
@@ -19,10 +22,17 @@ logger = logging.getLogger("anomaly.detectors.aircraft")
 
 # Module-level state (persists between detection cycles)
 _mil_baseline = RollingBaseline(window_seconds=21600)  # 6h
+_tanker_baseline = RollingBaseline(window_seconds=21600)  # 6h
 _prev_military_icaos: set[str] = set()
 _prev_tracked_icaos: set[str] = set()
-_aircraft_streak: dict[str, int] = {}  # icao24 → consecutive-cycle count
-_prev_jamming: list[dict] = []
+_aircraft_streak: dict[str, int] = {}  # icao24 -> consecutive-cycle count
+_jamming_streak: dict[str, int] = {}  # zone_key -> consecutive-cycle count
+_aircraft_type_cache: dict[str, str] = {}  # icao24 -> military_type
+_type_last_seen: dict[str, float] = {}  # "{grid}:{type}" -> last seen timestamp
+_system_start: float = time.time()
+
+# Military types that are significant for disappearance tracking
+_DISAPPEARANCE_TYPES = {"recon", "cargo", "tanker"}
 
 # Squawk code meanings
 _SQUAWK_MEANINGS = {
@@ -51,7 +61,7 @@ def _all_flights(snapshot: dict) -> list[tuple[str, dict]]:
 
 def detect(snapshot: dict) -> list[Anomaly]:
     """Run all aircraft anomaly rules against the current data snapshot."""
-    global _prev_military_icaos, _prev_tracked_icaos, _prev_jamming
+    global _prev_military_icaos, _prev_tracked_icaos
 
     anomalies: list[Anomaly] = []
     anomalies.extend(_check_emergency_squawk(snapshot))
@@ -60,6 +70,8 @@ def detect(snapshot: dict) -> list[Anomaly]:
     anomalies.extend(_check_unusual_holding(snapshot))
     anomalies.extend(_check_disappearance(snapshot))
     anomalies.extend(_check_speed_altitude(snapshot))
+    anomalies.extend(_check_unusual_military_type(snapshot))
+    anomalies.extend(_check_military_tanker_surge(snapshot))
     return anomalies
 
 
@@ -147,50 +159,52 @@ def _check_military_concentration(snapshot: dict) -> list[Anomaly]:
 
 
 def _check_gps_jamming(snapshot: dict) -> list[Anomaly]:
-    """Rule 3: New or escalating GPS jamming zones."""
-    global _prev_jamming
+    """Rule 3: Persistent high-severity GPS jamming zones.
+
+    Only flags zones with severity == "high" that persist for 2+ consecutive
+    detection cycles. Transient or low/medium-severity zones are ignored.
+    """
+    global _jamming_streak
     results = []
     current = snapshot.get("gps_jamming", [])
 
-    # Build lookup of previous jamming zones by grid position
-    prev_map: dict[str, dict] = {}
-    for z in _prev_jamming:
-        key = f"{z.get('lat')}:{z.get('lng')}"
-        prev_map[key] = z
-
-    severity_rank = {"low": 1, "medium": 2, "high": 3}
-
+    # Build set of current high-severity zone keys
+    current_high_keys: set[str] = set()
+    current_zone_map: dict[str, dict] = {}
     for zone in current:
+        if zone.get("severity") != "high":
+            continue
         key = f"{zone.get('lat')}:{zone.get('lng')}"
-        prev = prev_map.get(key)
-        cur_sev = severity_rank.get(zone.get("severity", ""), 0)
+        current_high_keys.add(key)
+        current_zone_map[key] = zone
 
-        is_new = prev is None
-        is_escalated = (
-            prev is not None
-            and cur_sev > severity_rank.get(prev.get("severity", ""), 0)
-        )
+    # Rebuild streaks: increment for zones still present, drop absent ones
+    new_streak: dict[str, int] = {}
+    for key in current_high_keys:
+        new_streak[key] = _jamming_streak.get(key, 0) + 1
+    _jamming_streak = new_streak
 
-        if is_new or is_escalated:
-            label = "New" if is_new else "Escalating"
+    # Only flag zones with streak >= 2 (present in 2+ consecutive cycles)
+    for key, streak in _jamming_streak.items():
+        if streak >= 2:
+            zone = current_zone_map[key]
             results.append(Anomaly.create(
                 domain="aircraft",
                 rule="gps_jamming_escalation",
                 severity=Severity.MEDIUM,
-                title=f"{label} GPS jamming: {zone.get('severity', '?')} at {key}",
+                title=f"Persistent GPS jamming: high severity at {key}",
                 description=(
                     f"GPS jamming zone at ({zone.get('lat')}, {zone.get('lng')}): "
-                    f"severity={zone.get('severity')}, "
+                    f"severity=high, persisted for {streak} consecutive cycles, "
                     f"{zone.get('degraded', '?')}/{zone.get('total', '?')} aircraft degraded."
                 ),
                 entity_id=key,
                 ttl=300,
                 lat=zone.get("lat"),
                 lng=zone.get("lng"),
-                metadata=zone,
+                metadata={**zone, "streak": streak},
             ))
 
-    _prev_jamming = list(current)
     return results
 
 
@@ -231,16 +245,26 @@ def _check_unusual_holding(snapshot: dict) -> list[Anomaly]:
 
 
 def _check_disappearance(snapshot: dict) -> list[Anomaly]:
-    """Rule 5: Military/tracked aircraft disappears between cycles."""
+    """Rule 5: Military recon/cargo/tanker aircraft disappears between cycles.
+
+    Only flags aircraft with military_type in ("recon", "cargo", "tanker").
+    Types like "heli", "fighter", and "default" go in and out of ADS-B
+    coverage constantly and are excluded. Requires 10 consecutive cycles
+    of presence before flagging a disappearance.
+    """
     global _prev_military_icaos, _prev_tracked_icaos
     results = []
 
-    # Build current sets
-    cur_mil = {
-        f.get("icao24", "").lower()
-        for f in snapshot.get("military_flights", [])
-        if f.get("icao24")
-    }
+    # Build current sets and a mapping of icao -> military_type for filtering
+    cur_mil: set[str] = set()
+    mil_type_map: dict[str, str] = {}
+    for f in snapshot.get("military_flights", []):
+        icao = f.get("icao24")
+        if icao:
+            icao_lower = icao.lower()
+            cur_mil.add(icao_lower)
+            mil_type_map[icao_lower] = f.get("military_type", "default")
+
     cur_tracked = {
         f.get("icao24", "").lower()
         for f in snapshot.get("tracked_flights", [])
@@ -254,12 +278,19 @@ def _check_disappearance(snapshot: dict) -> list[Anomaly]:
     # Decay absent aircraft
     absent = set(_aircraft_streak.keys()) - all_current
     for icao in list(absent):
-        # Check if this aircraft was present long enough and just disappeared
         streak = _aircraft_streak.get(icao, 0)
-        if streak >= 3:  # Present for at least 3 cycles (~3 min)
+        if streak >= 10:  # Present for at least 10 cycles (~10 min)
             was_military = icao in _prev_military_icaos
             was_tracked = icao in _prev_tracked_icaos
+
             if was_military or was_tracked:
+                # For military, only flag recon/cargo/tanker types
+                if was_military:
+                    cached_type = _aircraft_type_cache.get(icao, "default")
+                    if cached_type not in _DISAPPEARANCE_TYPES:
+                        del _aircraft_streak[icao]
+                        continue
+
                 label = "Military" if was_military else "Tracked"
                 results.append(Anomaly.create(
                     domain="aircraft",
@@ -278,6 +309,14 @@ def _check_disappearance(snapshot: dict) -> list[Anomaly]:
                 ))
         # Remove from streak tracking
         del _aircraft_streak[icao]
+
+    # Update type cache for current military aircraft
+    for icao, mtype in mil_type_map.items():
+        _aircraft_type_cache[icao] = mtype
+    # Clean up type cache for aircraft no longer tracked
+    for icao in list(_aircraft_type_cache.keys()):
+        if icao not in all_current and icao not in _aircraft_streak:
+            del _aircraft_type_cache[icao]
 
     _prev_military_icaos = cur_mil
     _prev_tracked_icaos = cur_tracked
@@ -333,6 +372,129 @@ def _check_speed_altitude(snapshot: dict) -> list[Anomaly]:
                 lng=f.get("lng"),
                 metadata={"altitude": alt, "threshold": _MAX_CIVILIAN_ALT,
                           "category": category, "callsign": callsign},
+            ))
+
+    return results
+
+
+def _check_unusual_military_type(snapshot: dict) -> list[Anomaly]:
+    """Rule 7: New military aircraft type appears in a grid cell.
+
+    Tracks which military_type values have been seen in each 2-degree grid
+    cell. Flags when a type appears that hasn't been seen in that cell for
+    >6 hours (or ever), provided there are at least 2 aircraft of that type.
+
+    During the first 600 seconds after system start, only records data
+    without generating alerts (warmup guard).
+    """
+    global _type_last_seen
+    results = []
+    now = time.time()
+    in_warmup = (now - _system_start) < 600
+
+    mil_flights = snapshot.get("military_flights", [])
+
+    # Count (grid, type) -> list of aircraft
+    cell_type_counts: dict[str, dict[str, list[dict]]] = {}
+    for f in mil_flights:
+        lat, lng = f.get("lat"), f.get("lng")
+        if lat is None or lng is None:
+            continue
+        mtype = f.get("military_type", "default")
+        gk = grid_key(lat, lng, resolution=2)
+        cell_type_counts.setdefault(gk, {}).setdefault(mtype, []).append(f)
+
+    # Check each (grid, type) pair
+    for gk, type_map in cell_type_counts.items():
+        for mtype, flights in type_map.items():
+            lookup_key = f"{gk}:{mtype}"
+            last_seen = _type_last_seen.get(lookup_key)
+
+            if not in_warmup and len(flights) >= 2:
+                # Flag if never seen or not seen for > 6 hours
+                if last_seen is None or (now - last_seen) > 21600:
+                    severity = Severity.HIGH if mtype in ("tanker", "recon") else Severity.MEDIUM
+                    sample = flights[0]
+                    label = "never before seen" if last_seen is None else "not seen for >6h"
+                    results.append(Anomaly.create(
+                        domain="aircraft",
+                        rule="unusual_military_type",
+                        severity=severity,
+                        title=f"Unusual military type in {gk}: {mtype} ({len(flights)} aircraft)",
+                        description=(
+                            f"{len(flights)} military aircraft of type '{mtype}' detected "
+                            f"in grid cell {gk}, {label} in this cell."
+                        ),
+                        entity_id=f"{gk}:{mtype}",
+                        ttl=300,
+                        lat=sample.get("lat"),
+                        lng=sample.get("lng"),
+                        metadata={
+                            "grid": gk, "military_type": mtype,
+                            "count": len(flights),
+                            "aircraft": [f.get("callsign", "?") for f in flights[:5]],
+                        },
+                    ))
+
+            # Always update last-seen timestamp (including during warmup)
+            _type_last_seen[lookup_key] = now
+
+    return results
+
+
+def _check_military_tanker_surge(snapshot: dict) -> list[Anomaly]:
+    """Rule 8: Surge in cargo/tanker military aircraft in a grid cell.
+
+    Filters military flights to type "cargo" or "tanker", counts per 2-degree
+    grid cell, and flags cells where the count exceeds baseline + 2 sigma
+    with at least 3 aircraft.
+    """
+    results = []
+    mil_flights = snapshot.get("military_flights", [])
+
+    # Filter to cargo and tanker types
+    tanker_cargo = [
+        f for f in mil_flights
+        if f.get("military_type") in ("cargo", "tanker")
+    ]
+
+    # Count per 2-degree grid cell
+    grid_counts: dict[str, int] = {}
+    grid_samples: dict[str, list[dict]] = {}
+    for f in tanker_cargo:
+        lat, lng = f.get("lat"), f.get("lng")
+        if lat is None or lng is None:
+            continue
+        gk = grid_key(lat, lng, resolution=2)
+        grid_counts[gk] = grid_counts.get(gk, 0) + 1
+        grid_samples.setdefault(gk, []).append(f)
+
+    # Record and check each cell
+    for gk, count in grid_counts.items():
+        _tanker_baseline.record(gk, count)
+        is_anom, z = _tanker_baseline.is_anomalous(
+            gk, count, sigma=2.0, min_samples=5, min_abs_deviation=3,
+        )
+        if is_anom and count >= 3:
+            sample = grid_samples[gk][0]
+            severity = Severity.HIGH if count >= 5 else Severity.MEDIUM
+            results.append(Anomaly.create(
+                domain="aircraft",
+                rule="military_tanker_surge",
+                severity=severity,
+                title=f"Cargo/tanker surge: {count} aircraft in {gk}",
+                description=(
+                    f"{count} military cargo/tanker aircraft detected in grid cell {gk}, "
+                    f"z-score {z:.1f} above baseline."
+                ),
+                entity_id=gk,
+                ttl=300,
+                lat=sample.get("lat"),
+                lng=sample.get("lng"),
+                metadata={
+                    "grid": gk, "count": count, "z_score": round(z, 2),
+                    "aircraft": [f.get("callsign", "?") for f in grid_samples[gk][:5]],
+                },
             ))
 
     return results

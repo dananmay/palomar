@@ -198,6 +198,24 @@ try:
 except ImportError as e:
     logger.warning(f"GDELT detector not available: {e}")
 
+try:
+    from anomaly.detectors.fires import detect as detect_fires
+    engine.register("slow", detect_fires)
+except ImportError as e:
+    logger.warning(f"Fires detector not available: {e}")
+
+try:
+    from anomaly.detectors.infrastructure import detect as detect_infrastructure
+    engine.register("slow", detect_infrastructure)
+except ImportError as e:
+    logger.warning(f"Infrastructure detector not available: {e}")
+
+try:
+    from anomaly.detectors.cross_domain import detect as detect_cross_domain
+    engine.register("fast", detect_cross_domain)
+except ImportError as e:
+    logger.warning(f"Cross-domain detector not available: {e}")
+
 
 def run_detection(tier: str, snapshot: dict) -> None:
     """Module-level entry point called by data_fetcher.py."""

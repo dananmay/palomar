@@ -103,7 +103,7 @@ export default function AnomalyMap({ anomalies, selectedId, onSelect, onCursorMo
         <Layer
           id="anomaly-selected-glow"
           type="circle"
-          filter={selectedId ? ["==", ["get", "anomaly_id"], selectedId] : ["==", 1, 0]}
+          filter={selectedId ? ["==", ["get", "anomaly_id"], selectedId] : ["==", ["get", "anomaly_id"], ""]}
           paint={{
             "circle-radius": 18,
             "circle-color": "transparent",
