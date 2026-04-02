@@ -119,7 +119,6 @@ export default function TopRightControls() {
                         AUTO UPDATE
                     </button>
 
-                    <a
                     <button
                         onClick={() => setUpdateStatus("available")}
                         className="w-full flex items-center justify-center px-3 py-1.5 text-[9px] text-[var(--text-muted)] font-mono tracking-widest hover:text-[var(--text-secondary)] transition-colors"
