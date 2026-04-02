@@ -1,0 +1,115 @@
+# shadowbroker .gitignore
+# ----------------------
+
+# Dependencies
+node_modules/
+venv/
+env/
+.venv/
+
+# Environment Variables & Secrets
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Python caches & compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Next.js build output
+.next/
+out/
+build/
+
+# Application Specific Caches & DBs
+backend/ais_cache.json
+backend/carrier_cache.json
+backend/cctv.db
+*.sqlite3
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Vercel / Deployment
+.vercel
+
+# Temp files
+tmp/
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+out.txt
+out_sys.txt
+rss_output.txt
+merged.txt
+tmp_fast.json
+diff.txt
+local_diff.txt
+map_diff.txt
+TheAirTraffic Database.xlsx
+
+# Debug dumps & release artifacts
+backend/dump.json
+backend/debug_fast.json
+backend/nyc_sample.json
+backend/nyc_full.json
+backend/liveua_test.html
+backend/out_liveua.json
+frontend/server_logs*.txt
+frontend/cctv.db
+*.zip
+*.tar.gz
+.git_backup/
+coverage/
+.coverage
+dist/
+
+# Test files (may contain hardcoded keys)
+backend/test_*.py
+backend/services/test_*.py
+
+# Local analysis & dev tools
+backend/analyze_xlsx.py
+backend/xlsx_analysis.txt
+backend/services/ais_cache.json
+
+# Internal update tracking (not for repo)
+updatestuff.md
+
+# Misc dev artifacts
+clean_zip.py
+zip_repo.py
+refactor_cesium.py
+jobs.json
+
+.claude
+.mise.local.toml
+
+# Local-only internal docs (never commit)
+.local-docs/
+ROADMAP.md
+UPDATEPROTOCOL.md
+CLAUDE.md
+DOCKER_SECRETS.md

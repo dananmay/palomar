@@ -1,0 +1,12 @@
+---
+apiVersion: v2
+name: shadowbroker
+version: 0.0.1
+description: simple shadowbroker installation
+type: application
+
+dependencies:
+  - name: app-template
+    alias: shadowbroker
+    version: ~4
+    repository: https://bjw-s-labs.github.io/helm-charts/
