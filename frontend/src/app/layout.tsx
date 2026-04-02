@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import { ThemeProvider } from "@/lib/ThemeContext";
+import { Geist } from "next/font/google";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -8,13 +7,8 @@ const geistSans = Geist({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
-  title: "Palomar // OSINT Intelligence Platform",
+  title: "Palomar",
   description: "Real-time OSINT platform with AI intelligence analysis",
 };
 
@@ -26,11 +20,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head />
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[var(--bg-primary)]`}
-        suppressHydrationWarning
-      >
-        <ThemeProvider>{children}</ThemeProvider>
+      <body className={`${geistSans.variable} antialiased`}>
+        {children}
       </body>
     </html>
   );
