@@ -23,6 +23,10 @@ logger = logging.getLogger("anomaly.detectors.cross_domain")
 _GDELT_THRESHOLD_MILITARY = 15
 _GDELT_THRESHOLD_INTERNET = 10
 
+# Grid cells containing known military bases — military aircraft near their
+# own bases is normal, not anomalous. Built on first call from snapshot data.
+_base_cells: set[str] | None = None
+
 
 def detect(snapshot: dict) -> list[Anomaly]:
     """Run all cross-domain anomaly rules."""
@@ -71,10 +75,21 @@ def _check_military_near_conflict(
     - ≥15 GDELT events in the overlapping 4° grid cell
     - Grid alignment: 2° military cells map to the containing 4° GDELT cell
     """
+    global _base_cells
     results = []
     mil_flights = snapshot.get("military_flights", [])
     if not mil_flights or not gdelt_grid:
         return results
+
+    # Build set of grid cells containing known military bases (once)
+    if _base_cells is None:
+        _base_cells = set()
+        for base in snapshot.get("military_bases", []):
+            b_lat, b_lng = base.get("lat"), base.get("lng")
+            if b_lat is not None and b_lng is not None:
+                _base_cells.add(grid_key(b_lat, b_lng, resolution=2))
+        if _base_cells:
+            logger.info(f"Cached {len(_base_cells)} grid cells with military bases (excluded from military-conflict rule)")
 
     # Count military aircraft per 2° cell
     mil_cells: dict[str, list[dict]] = {}
@@ -87,6 +102,10 @@ def _check_military_near_conflict(
 
     for gk, flights in mil_cells.items():
         if len(flights) < 3:
+            continue
+
+        # Skip cells with known military bases — aircraft near their own base is normal
+        if _base_cells and gk in _base_cells:
             continue
 
         # Map 2° military cell to containing 4° GDELT cell
