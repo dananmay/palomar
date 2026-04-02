@@ -23,6 +23,16 @@ load_dotenv()
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime
+
+# Anomaly detection (Palomar AI layer — fail-safe import)
+try:
+    from anomaly.engine import run_detection as _run_anomaly_detection
+except Exception:
+    logging.getLogger("services.data_fetcher").warning(
+        "Anomaly detection module not available — running without anomaly detection"
+    )
+    def _run_anomaly_detection(*args, **kwargs):
+        pass
 from services.cctv_pipeline import init_db
 
 # Shared state — all fetcher modules read/write through this
@@ -109,7 +119,9 @@ def update_fast_data():
         concurrent.futures.wait(futures)
     with _data_lock:
         latest_data["last_updated"] = datetime.utcnow().isoformat()
+        _snapshot = {k: v for k, v in latest_data.items()}
     logger.info("Fast-tier update complete.")
+    _run_anomaly_detection("fast", _snapshot)
 
 
 def update_slow_data():
@@ -135,7 +147,10 @@ def update_slow_data():
     with concurrent.futures.ThreadPoolExecutor(max_workers=len(slow_funcs)) as executor:
         futures = [executor.submit(func) for func in slow_funcs]
         concurrent.futures.wait(futures)
+    with _data_lock:
+        _snapshot = {k: v for k, v in latest_data.items()}
     logger.info("Slow-tier update complete.")
+    _run_anomaly_detection("slow", _snapshot)
 
 
 def update_all_data():

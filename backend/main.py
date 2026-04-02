@@ -135,6 +135,12 @@ async def lifespan(app: FastAPI):
     stop_scheduler()
     stop_carrier_tracker()
 
+# Anomaly engine (Palomar AI layer — fail-safe import)
+try:
+    from anomaly.engine import engine as anomaly_engine
+except Exception:
+    anomaly_engine = None
+
 app = FastAPI(title="Palomar API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -273,6 +279,7 @@ async def live_data_fast(request: Request,
         "gps_jamming": _f(d.get("gps_jamming", [])),
         "satellites": _f(d.get("satellites", [])),
         "satellite_source": d.get("satellite_source", "none"),
+        "anomalies": anomaly_engine.get_active_anomalies() if anomaly_engine else [],
         "freshness": dict(source_timestamps),
     }
     bbox_tag = f"{s},{w},{n},{e}" if has_bbox else "full"
@@ -312,6 +319,16 @@ async def live_data_slow(request: Request,
     bbox_tag = f"{s},{w},{n},{e}" if has_bbox else "full"
     return _etag_response(request, payload, prefix=f"slow|{bbox_tag}|", default=str)
 
+@app.get("/api/anomalies")
+@limiter.limit("60/minute")
+async def get_anomalies(request: Request):
+    """Return all currently active anomalies detected by Tier 1."""
+    if not anomaly_engine:
+        return {"anomalies": [], "count": 0}
+    active = anomaly_engine.get_active_anomalies()
+    return {"anomalies": active, "count": len(active)}
+
+
 @app.get("/api/debug-latest")
 @limiter.limit("30/minute")
 async def debug_latest_data(request: Request):
@@ -339,6 +356,7 @@ async def health_check(request: Request):
             "firms_fires": len(d.get("firms_fires", [])),
             "liveuamap": len(d.get("liveuamap", [])),
             "gdelt": len(d.get("gdelt", [])),
+            "anomalies_active": anomaly_engine.active_count() if anomaly_engine else 0,
         },
         "freshness": dict(source_timestamps),
         "uptime_seconds": round(time.time() - _start_time),
