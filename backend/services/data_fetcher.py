@@ -244,15 +244,20 @@ def start_scheduler():
         next_run_time=datetime.utcnow(),
     )
 
-    # Triage — AI annotation of anomalies (configurable interval, default 30 min)
-    _scheduler.add_job(
-        _run_triage,
-        "interval",
-        minutes=int(os.environ.get("PALOMAR_TRIAGE_INTERVAL_MINUTES", "30")),
-        id="triage",
-        max_instances=1,
-        misfire_grace_time=300,
-    )
+    # Triage — AI annotation of anomalies (only scheduled if interval is explicitly set)
+    triage_interval = os.environ.get("PALOMAR_TRIAGE_INTERVAL_MINUTES", "").strip()
+    if triage_interval:
+        _scheduler.add_job(
+            _run_triage,
+            "interval",
+            minutes=int(triage_interval),
+            id="triage",
+            max_instances=1,
+            misfire_grace_time=300,
+        )
+        logger.info(f"Triage scheduled every {triage_interval} minutes")
+    else:
+        logger.info("Triage not scheduled — use manual trigger or set PALOMAR_TRIAGE_INTERVAL_MINUTES")
 
     _scheduler.start()
     logger.info("Scheduler started.")

@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
-import { ArrowLeft } from "lucide-react";
+import { useMemo, useState, useCallback } from "react";
+import { ArrowLeft, Sparkles } from "lucide-react";
+import { API_BASE } from "@/lib/api";
 import type { Anomaly } from "@/types/anomaly";
 
 interface Props {
@@ -37,6 +38,18 @@ function timeAgo(ts: number): string {
 }
 
 export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDeselect, status }: Props) {
+  const [triageRunning, setTriageRunning] = useState(false);
+
+  const runTriage = useCallback(async () => {
+    setTriageRunning(true);
+    try {
+      await fetch(`${API_BASE}/api/triage/run`, { method: "POST" });
+    } catch {
+      // Silently fail — results will show on next poll
+    } finally {
+      setTimeout(() => setTriageRunning(false), 2000); // Brief cooldown
+    }
+  }, []);
   const selected = useMemo(
     () => anomalies.find((a) => a.anomaly_id === selectedId) ?? null,
     [anomalies, selectedId],
@@ -64,7 +77,17 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
     <aside className="w-80 h-full flex flex-col border-r border-[#2a2a2a] bg-[#0a0a0a]">
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#2a2a2a]">
-        <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Palomar</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Palomar</h1>
+          <button
+            onClick={runTriage}
+            disabled={triageRunning || anomalies.length === 0}
+            title="Run AI triage"
+            className="p-1.5 rounded-md text-[#666] hover:text-[#a78bfa] hover:bg-[#a78bfa]/10 transition-colors disabled:opacity-30 disabled:hover:text-[#666] disabled:hover:bg-transparent"
+          >
+            <Sparkles size={14} className={triageRunning ? "animate-spin" : ""} />
+          </button>
+        </div>
         <div className="flex items-center gap-2 mt-1">
           <span
             className="w-1.5 h-1.5 rounded-full"

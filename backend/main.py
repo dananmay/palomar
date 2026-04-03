@@ -345,6 +345,28 @@ async def get_anomalies(request: Request):
     return {"anomalies": active, "count": len(active)}
 
 
+@app.post("/api/triage/run")
+@limiter.limit("10/minute")
+def run_triage_now(request: Request):
+    """Manually trigger a triage cycle. Sync — runs in thread pool."""
+    try:
+        from triage import run_triage_cycle
+        from anomaly.engine import engine
+    except Exception:
+        return JSONResponse(status_code=503, content={"error": "Triage module not available"})
+
+    anomalies = engine.get_active_anomalies()
+    news = get_latest_data().get("news", [])
+    if not anomalies:
+        return {"status": "skipped", "reason": "No active anomalies"}
+
+    run_triage_cycle(anomalies, news)
+
+    from triage.store import triage_store as ts
+    info = ts.last_run_info()
+    return {"status": "ok", "result": info}
+
+
 class ChatRequest(BaseModel):
     message: str
     history: list = []
