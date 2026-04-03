@@ -13,9 +13,6 @@ from anomaly.rules import grid_key
 
 logger = logging.getLogger("anomaly.detectors.seismic")
 
-# Module-level baselines
-# 12h window for swarm detection (tracks count per grid cell)
-_swarm_baseline = RollingBaseline(window_seconds=43200)
 # 24h window for magnitude tracking (tracks max magnitude per grid cell)
 _mag_baseline = RollingBaseline(window_seconds=86400)
 
@@ -34,9 +31,10 @@ def detect(snapshot: dict) -> list[Anomaly]:
 
 
 def _check_swarm(snapshot: dict) -> list[Anomaly]:
-    """Rule 1: Earthquake swarm — 3+ quakes in same 2° grid within 12 hours.
+    """Rule 1: Earthquake swarm — 3+ quakes in same 2° grid cell.
 
     Uses a 2° grid (~222km cells) to group nearby earthquakes.
+    The USGS feed provides quakes from the last 24 hours.
     """
     results = []
     quakes = snapshot.get("earthquakes", [])
@@ -54,8 +52,6 @@ def _check_swarm(snapshot: dict) -> list[Anomaly]:
 
     for gk, cell_quakes in grid_counts.items():
         count = len(cell_quakes)
-        _swarm_baseline.record(gk, count)
-
         if count >= 3:
             max_mag = max(q.get("mag", 0) for q in cell_quakes)
             severity = Severity.HIGH if count >= 5 or max_mag >= 5.0 else Severity.MEDIUM

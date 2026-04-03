@@ -167,7 +167,7 @@ def _check_internet_outage_conflict(
 
     for outage in outages:
         severity_val = outage.get("severity", 0) or 0
-        if severity_val <= 40:
+        if severity_val <= 50:  # Aligned with infrastructure.py threshold
             continue
 
         lat = outage.get("lat")

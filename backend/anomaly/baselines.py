@@ -113,7 +113,8 @@ class RollingBaseline:
 
         Returns:
             (is_anomalous: bool, z_score: float)
-            z_score is float('inf') when std=0 and value differs from mean.
+            z_score is 10.0 when std=0 and value differs from mean (finite
+            to avoid breaking JSON serialization).
         """
         with self._lock:
             now = time.time()
@@ -139,7 +140,7 @@ class RollingBaseline:
                 # All historical values identical. Flag only if deviation
                 # exceeds the minimum absolute threshold.
                 if value != avg and abs_dev >= min_abs_deviation:
-                    return True, float('inf')
+                    return True, 10.0
                 return False, 0.0
 
             z = abs_dev / sd

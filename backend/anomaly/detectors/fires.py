@@ -36,18 +36,27 @@ def detect(snapshot: dict) -> list[Anomaly]:
 
 
 def _get_nuclear_plants(snapshot: dict) -> list[dict]:
-    """Cache nuclear plants from power_plants data (filter once)."""
+    """Cache nuclear plants from power_plants data (filter once).
+
+    Only caches when plants are found. If power_plants data isn't loaded yet
+    (first snapshot), returns empty and retries next cycle.
+    """
     global _nuclear_plants
     if _nuclear_plants is None:
         all_plants = snapshot.get("power_plants", [])
-        _nuclear_plants = [
+        if not all_plants:
+            return []  # Data not loaded yet — retry next cycle
+        found = [
             p for p in all_plants
             if "nuclear" in (p.get("fuel_type", "") or "").lower()
             and p.get("lat") is not None
             and p.get("lng") is not None
         ]
-        if _nuclear_plants:
+        if found:
+            _nuclear_plants = found
             logger.info(f"Cached {len(_nuclear_plants)} nuclear plants for fire proximity detection")
+        else:
+            return []  # No nuclear plants found — retry next cycle
     return _nuclear_plants
 
 
@@ -246,8 +255,8 @@ def _check_fire_in_conflict_zone(snapshot: dict) -> list[Anomaly]:
     if not conflict_grid:
         return results
 
-    # Check each fire against the conflict grid
-    seen_cells: set[str] = set()
+    # Aggregate fires per conflict grid cell (track count + max FRP)
+    cell_data: dict[str, dict] = {}  # gk → {count, max_frp, best_fire, gdelt_count}
     for fire in fires:
         frp = fire.get("frp", 0) or 0
         if frp <= 30:
@@ -258,33 +267,44 @@ def _check_fire_in_conflict_zone(snapshot: dict) -> list[Anomaly]:
             continue
 
         gk = grid_key(f_lat, f_lng, resolution=4)
-        if gk in seen_cells:
-            continue  # One anomaly per grid cell
         gdelt_count = conflict_grid.get(gk, 0)
         if gdelt_count < 10:
             continue
 
-        seen_cells.add(gk)
-        severity = Severity.CRITICAL if frp > 100 else Severity.HIGH
+        if gk not in cell_data or frp > cell_data[gk]["max_frp"]:
+            cell_data[gk] = {
+                "count": cell_data.get(gk, {}).get("count", 0) + 1,
+                "max_frp": frp,
+                "fire": fire,
+                "gdelt_count": gdelt_count,
+            }
+        else:
+            cell_data[gk]["count"] += 1
+
+    for gk, data in cell_data.items():
+        max_frp = data["max_frp"]
+        count = data["count"]
+        fire = data["fire"]
+        gdelt_count = data["gdelt_count"]
+        severity = Severity.CRITICAL if max_frp > 100 else Severity.HIGH
         results.append(Anomaly.create(
             domain="fires",
             rule="fire_in_conflict_zone",
             severity=severity,
-            title=f"Fire in conflict zone {gk}: FRP={frp:.0f}MW, {gdelt_count} GDELT events",
+            title=f"Fire in conflict zone {gk}: {count} hotspots (max FRP={max_frp:.0f}MW), {gdelt_count} GDELT events",
             description=(
-                f"Thermal anomaly (FRP={frp:.0f}MW) detected in grid cell {gk} "
-                f"which has {gdelt_count} GDELT conflict events. High fire power "
-                f"in an active conflict zone may indicate deliberate destruction."
+                f"{count} thermal anomal{'y' if count == 1 else 'ies'} (max FRP={max_frp:.0f}MW) "
+                f"detected in grid cell {gk} which has {gdelt_count} GDELT conflict events."
             ),
             entity_id=gk,
             ttl=1800,
-            lat=f_lat,
-            lng=f_lng,
+            lat=fire.get("lat"),
+            lng=fire.get("lng"),
             metadata={
                 "grid": gk,
-                "fire_frp": frp,
+                "fire_count": count,
+                "max_frp": max_frp,
                 "gdelt_event_count": gdelt_count,
-                "fire_confidence": fire.get("confidence"),
             },
         ))
 

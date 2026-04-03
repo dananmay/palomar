@@ -64,10 +64,12 @@ class AnomalyEngine:
                 if not anomalies:
                     continue
 
-                # Rate limit: keep top N by severity
                 if len(anomalies) > MAX_PER_DETECTOR:
-                    anomalies.sort(key=lambda a: a.severity, reverse=True)
-                    anomalies = anomalies[:MAX_PER_DETECTOR]
+                    logger.warning(
+                        f"Detector {detector.__name__} produced {len(anomalies)} "
+                        f"anomalies (threshold {MAX_PER_DETECTOR}) — all accepted, "
+                        f"consider tightening thresholds"
+                    )
 
                 for anomaly in anomalies:
                     was_new, was_escalated = self._upsert(anomaly)

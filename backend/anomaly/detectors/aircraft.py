@@ -106,7 +106,7 @@ def _check_emergency_squawk(snapshot: dict) -> list[Anomaly]:
                     f"{f.get('speed_knots', 'N/A')}kts."
                 ),
                 entity_id=icao24,
-                ttl=120,
+                ttl=600,  # 10 min — emergencies are rare and always significant
                 lat=f.get("lat"),
                 lng=f.get("lng"),
                 metadata={"squawk": squawk, "meaning": meaning,
