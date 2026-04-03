@@ -217,16 +217,34 @@ def _check_fire_cluster_surge(snapshot: dict) -> list[Anomaly]:
     return results
 
 
+_base_cells_4deg: set[str] | None = None
+
+
 def _check_fire_in_conflict_zone(snapshot: dict) -> list[Anomaly]:
     """Rule 4: High-FRP fire in a GDELT conflict hotspot.
+
+    Excludes grid cells containing known military bases — fires near
+    US/NATO bases in the eastern US are routine, not conflict indicators.
 
     Cross-references FIRMS fires against GDELT conflict density. Flags fires
     with FRP > 30 that fall in a 4-degree grid cell with >= 10 GDELT events.
     """
+    global _base_cells_4deg
     results = []
     fires = snapshot.get("firms_fires", [])
     if not fires:
         return results
+
+    # Build set of 4° cells with military bases (exclude these — fires near
+    # US/NATO bases are routine, GDELT "conflict" events there are domestic)
+    if _base_cells_4deg is None:
+        bases = snapshot.get("military_bases", [])
+        if bases:
+            _base_cells_4deg = set()
+            for base in bases:
+                b_lat, b_lng = base.get("lat"), base.get("lng")
+                if b_lat is not None and b_lng is not None:
+                    _base_cells_4deg.add(grid_key(b_lat, b_lng, resolution=4))
 
     # Build GDELT conflict grid (count events per 4° cell)
     gdelt = snapshot.get("gdelt", [])
@@ -270,6 +288,8 @@ def _check_fire_in_conflict_zone(snapshot: dict) -> list[Anomaly]:
         gdelt_count = conflict_grid.get(gk, 0)
         if gdelt_count < 10:
             continue
+        if _base_cells_4deg and gk in _base_cells_4deg:
+            continue  # Skip cells with military bases — routine activity
 
         if gk not in cell_data or frp > cell_data[gk]["max_frp"]:
             cell_data[gk] = {
