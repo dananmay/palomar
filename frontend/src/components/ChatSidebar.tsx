@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Send } from "lucide-react";
+import Markdown from "react-markdown";
 import { API_BASE } from "@/lib/api";
 import type { ChatMessage } from "@/types/chat";
 
@@ -197,9 +198,26 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             ? "bg-[#1a1a1a] text-[#e5e5e5]"
             : "text-[#a3a3a3]"
         }`}
-        style={{ whiteSpace: "pre-wrap" }}
       >
-        {message.content}
+        {isUser ? (
+          <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
+        ) : (
+          <Markdown
+            components={{
+              h1: ({ children }) => <div className="text-base font-semibold text-[#e5e5e5] mt-3 mb-1">{children}</div>,
+              h2: ({ children }) => <div className="text-sm font-semibold text-[#e5e5e5] mt-3 mb-1">{children}</div>,
+              h3: ({ children }) => <div className="text-sm font-medium text-[#e5e5e5] mt-2 mb-1">{children}</div>,
+              p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+              strong: ({ children }) => <strong className="text-[#e5e5e5] font-medium">{children}</strong>,
+              ul: ({ children }) => <ul className="list-disc pl-4 mb-2 space-y-1">{children}</ul>,
+              ol: ({ children }) => <ol className="list-decimal pl-4 mb-2 space-y-1">{children}</ol>,
+              li: ({ children }) => <li>{children}</li>,
+              code: ({ children }) => <code className="bg-[#1a1a1a] px-1 py-0.5 rounded text-xs font-mono text-[#e5e5e5]">{children}</code>,
+            }}
+          >
+            {message.content}
+          </Markdown>
+        )}
       </div>
     </div>
   );
