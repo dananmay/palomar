@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import AnomalySidebar from "@/components/AnomalySidebar";
+import ChatSidebar from "@/components/ChatSidebar";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import { useAnomalyPolling } from "@/hooks/useAnomalyPolling";
 import { useReverseGeocode } from "@/hooks/useReverseGeocode";
@@ -21,7 +22,7 @@ export default function Home() {
 
   return (
     <div className="flex h-screen w-screen bg-[#0a0a0a]">
-      {/* Sidebar */}
+      {/* Left: Anomaly sidebar */}
       <AnomalySidebar
         anomalies={anomalies}
         selectedId={selectedId}
@@ -30,8 +31,8 @@ export default function Home() {
         status={status}
       />
 
-      {/* Map + coordinate bar */}
-      <div className="flex-1 flex flex-col">
+      {/* Center: Map + coordinate bar */}
+      <div className="flex-1 flex flex-col min-w-0">
         <div className="flex-1 relative">
           <ErrorBoundary>
             <AnomalyMap
@@ -58,6 +59,9 @@ export default function Home() {
           </div>
         )}
       </div>
+
+      {/* Right: Chat sidebar */}
+      <ChatSidebar selectedAnomalyId={selectedId} />
     </div>
   );
 }

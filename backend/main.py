@@ -39,6 +39,7 @@ for _var in _SECRET_VARS:
             logger.error(f"Failed to read secret file {_file_path} for {_var}: {_e}")
 
 from fastapi import FastAPI, Request, Response, Query, Depends, HTTPException
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from services.data_fetcher import start_scheduler, stop_scheduler, get_latest_data, source_timestamps
@@ -146,6 +147,13 @@ try:
     from triage.store import triage_store
 except Exception:
     triage_store = None
+
+# Chat handler (Tier 3 — fail-safe import)
+try:
+    from analyst.chat import handle_chat as _handle_chat, get_chat_status as _get_chat_status
+except Exception:
+    _handle_chat = None
+    _get_chat_status = None
 
 app = FastAPI(title="Palomar API", lifespan=lifespan)
 app.state.limiter = limiter
@@ -335,6 +343,46 @@ async def get_anomalies(request: Request):
     if triage_store:
         triage_store.merge_into(active)
     return {"anomalies": active, "count": len(active)}
+
+
+class ChatRequest(BaseModel):
+    message: str
+    history: list = []
+    selected_anomaly_id: str | None = None
+
+
+@app.get("/api/chat/status")
+@limiter.limit("30/minute")
+async def chat_status(request: Request):
+    """Check if chat analyst is available."""
+    if not _get_chat_status:
+        return {"available": False, "model": None, "error": "Analyst module not loaded"}
+    return _get_chat_status()
+
+
+@app.post("/api/chat")
+@limiter.limit("30/minute")
+def chat_endpoint(request: Request, body: ChatRequest):
+    """Send a message to the Palomar analyst. Sync — runs in thread pool."""
+    if not _handle_chat:
+        return JSONResponse(
+            status_code=503,
+            content={"error": "Analyst module not available"},
+        )
+    try:
+        news = get_latest_data().get("news", [])
+        result = _handle_chat(
+            message=body.message,
+            history=body.history,
+            selected_anomaly_id=body.selected_anomaly_id,
+            news=news,
+        )
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error(f"Chat endpoint error: {e}", exc_info=True)
+        return JSONResponse(status_code=500, content={"error": "Internal error"})
 
 
 @app.get("/api/debug-latest")
