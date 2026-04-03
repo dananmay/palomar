@@ -40,8 +40,10 @@ For each anomaly, write a one-line `context` that helps an analyst quickly under
 
 Bad annotations:
 - Restate what the detector already said — the analyst can see the title and description
-- Attribute anomalies to unrelated events in distant regions — a fire in the Philippines has nothing to do with tensions in the Persian Gulf, even if both are in the news
-- Force connections between anomalies and news when the geographic or thematic link is weak
+- Force connections to global news without a clear causal mechanism — a fire in the Philippines is not caused by tensions in the Persian Gulf
+- Reference news from a different region unless there is a specific, articulable reason the events are linked (e.g., global oil price impact, alliance obligations, supply chain disruption)
+
+The news context is split into "Regional" (near the anomaly) and "Global" (distant). Only reference global news if there is a concrete causal link, not mere temporal coincidence.
 
 ## How to highlight
 

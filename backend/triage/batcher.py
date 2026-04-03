@@ -108,31 +108,51 @@ def _match_regional_news(news: list[dict], anomaly_grids: set[str]) -> str:
             for dlng in (-4, 0, 4):
                 expanded_grids.add(f"{base_lat + dlat}:{base_lng + dlng}")
 
-    matched: list[dict] = []
+    regional: list[dict] = []
+    global_context: list[dict] = []
 
     for article in news:
         coords = article.get("coords")
-        if not coords or len(coords) < 2 or coords[0] is None or coords[1] is None:
-            continue  # Skip unlocated news — prevents irrelevant global headlines from leaking in
-        news_grid = _grid_key_4deg(coords[0], coords[1])
-        if news_grid in expanded_grids:
-            matched.append(article)
+        risk = article.get("risk_score", 0) or 0
 
-    # Only geographically matched news, cap at 20
-    selected = matched[:20]
+        if coords and len(coords) >= 2 and coords[0] is not None and coords[1] is not None:
+            news_grid = _grid_key_4deg(coords[0], coords[1])
+            if news_grid in expanded_grids:
+                regional.append(article)
+                continue
 
-    if not selected:
-        return "No relevant regional news found."
+        # High-risk unlocated news as global context (labeled separately)
+        if risk >= 7:
+            global_context.append(article)
+
+    # Regional news first, then global context (labeled so the model knows the difference)
+    selected = regional[:15]
+    global_selected = global_context[:5]
+
+    if not selected and not global_selected:
+        return "No relevant news found."
 
     lines = []
-    for article in selected:
-        title = article.get("title", "")
-        source = article.get("source", "")
-        risk = article.get("risk_score", 0) or 0
-        line = f'- "{title}" ({source}'
-        if risk >= 5:
-            line += f", risk {risk}/10"
-        line += ")"
-        lines.append(line)
+
+    if selected:
+        lines.append("Regional (near anomaly locations):")
+        for article in selected:
+            title = article.get("title", "")
+            source = article.get("source", "")
+            risk = article.get("risk_score", 0) or 0
+            line = f'- "{title}" ({source}'
+            if risk >= 5:
+                line += f", risk {risk}/10"
+            line += ")"
+            lines.append(line)
+
+    if global_selected:
+        lines.append("")
+        lines.append("Global (not near any anomaly — only reference if a causal link is clear):")
+        for article in global_selected:
+            title = article.get("title", "")
+            source = article.get("source", "")
+            risk = article.get("risk_score", 0) or 0
+            lines.append(f'- "{title}" ({source}, risk {risk}/10)')
 
     return "\n".join(lines)
