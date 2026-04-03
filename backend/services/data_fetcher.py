@@ -15,6 +15,7 @@ Heavy logic has been extracted into services/fetchers/:
 """
 
 import logging
+import os
 import concurrent.futures
 from datetime import datetime
 from dotenv import load_dotenv
@@ -33,6 +34,15 @@ except Exception:
     )
     def _run_anomaly_detection(*args, **kwargs):
         pass
+
+# Triage (Palomar AI layer — fail-safe import)
+try:
+    from anomaly.engine import engine as _anomaly_engine
+    from triage import run_triage_cycle as _run_triage_cycle
+except Exception:
+    _anomaly_engine = None
+    _run_triage_cycle = None
+
 from services.cctv_pipeline import init_db
 
 # Shared state — all fetcher modules read/write through this
@@ -164,6 +174,19 @@ def update_all_data():
     logger.info("Full data update complete.")
 
 
+def _run_triage():
+    """Run Tier 2 triage — annotate anomalies with AI context."""
+    if not _anomaly_engine or not _run_triage_cycle:
+        return
+    try:
+        anomalies = _anomaly_engine.get_active_anomalies()
+        with _data_lock:
+            news = list(latest_data.get("news", []))
+        _run_triage_cycle(anomalies, news)
+    except Exception as e:
+        logger.error(f"Triage cycle failed: {e}")
+
+
 _scheduler = None
 
 
@@ -219,6 +242,16 @@ def start_scheduler():
         max_instances=1,
         misfire_grace_time=120,
         next_run_time=datetime.utcnow(),
+    )
+
+    # Triage — AI annotation of anomalies (configurable interval, default 30 min)
+    _scheduler.add_job(
+        _run_triage,
+        "interval",
+        minutes=int(os.environ.get("PALOMAR_TRIAGE_INTERVAL_MINUTES", "30")),
+        id="triage",
+        max_instances=1,
+        misfire_grace_time=300,
     )
 
     _scheduler.start()

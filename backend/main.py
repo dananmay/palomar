@@ -141,6 +141,12 @@ try:
 except Exception:
     anomaly_engine = None
 
+# Triage store (Tier 2 — fail-safe import)
+try:
+    from triage.store import triage_store
+except Exception:
+    triage_store = None
+
 app = FastAPI(title="Palomar API", lifespan=lifespan)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -279,7 +285,7 @@ async def live_data_fast(request: Request,
         "gps_jamming": _f(d.get("gps_jamming", [])),
         "satellites": _f(d.get("satellites", [])),
         "satellite_source": d.get("satellite_source", "none"),
-        "anomalies": anomaly_engine.get_active_anomalies() if anomaly_engine else [],
+        "anomalies": triage_store.merge_into(anomaly_engine.get_active_anomalies()) if anomaly_engine else [],
         "freshness": dict(source_timestamps),
     }
     bbox_tag = f"{s},{w},{n},{e}" if has_bbox else "full"
@@ -322,10 +328,12 @@ async def live_data_slow(request: Request,
 @app.get("/api/anomalies")
 @limiter.limit("60/minute")
 async def get_anomalies(request: Request):
-    """Return all currently active anomalies detected by Tier 1."""
+    """Return all currently active anomalies with AI triage annotations."""
     if not anomaly_engine:
         return {"anomalies": [], "count": 0}
     active = anomaly_engine.get_active_anomalies()
+    if triage_store:
+        triage_store.merge_into(active)
     return {"anomalies": active, "count": len(active)}
 
 

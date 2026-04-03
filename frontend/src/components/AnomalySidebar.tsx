@@ -24,6 +24,9 @@ const DOMAIN_LABELS: Record<string, string> = {
   maritime: "Maritime",
   seismic: "Seismic",
   gdelt: "GDELT",
+  fires: "Fires",
+  infrastructure: "Infrastructure",
+  cross_domain: "Cross-domain",
 };
 
 function timeAgo(ts: number): string {
@@ -39,18 +42,22 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
     [anomalies, selectedId],
   );
 
-  // Auto-deselect if selected anomaly expired (no longer in list)
   if (selectedId && !selected) {
-    // Use setTimeout to avoid state update during render
     setTimeout(() => onDeselect(), 0);
   }
 
-  const grouped = useMemo(() => {
+  // Split anomalies: highlighted go to Palomar's Picks, rest to severity groups
+  const { highlighted, grouped } = useMemo(() => {
+    const picks: Anomaly[] = [];
     const groups: Record<number, Anomaly[]> = { 4: [], 3: [], 2: [], 1: [] };
     for (const a of anomalies) {
-      (groups[a.severity] ??= []).push(a);
+      if (a.ai_highlighted) {
+        picks.push(a);
+      } else {
+        (groups[a.severity] ??= []).push(a);
+      }
     }
-    return groups;
+    return { highlighted: picks, grouped: groups };
   }, [anomalies]);
 
   return (
@@ -83,24 +90,76 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
         ) : anomalies.length === 0 ? (
           <EmptyState status={status} />
         ) : (
-          <ListView groups={grouped} onSelect={onSelect} />
+          <ListView highlighted={highlighted} groups={grouped} onSelect={onSelect} />
         )}
       </div>
     </aside>
   );
 }
 
+/* ── Anomaly Card (shared between Picks and severity groups) ── */
+
+function AnomalyCard({ anomaly, onSelect }: { anomaly: Anomaly; onSelect: (id: string) => void }) {
+  return (
+    <button
+      onClick={() => onSelect(anomaly.anomaly_id)}
+      className="w-full text-left px-5 py-3 hover:bg-[#1a1a1a] transition-colors border-b border-[#1a1a1a]"
+    >
+      <div className="flex items-start gap-2.5">
+        <span
+          className="mt-1 w-2 h-2 rounded-full flex-shrink-0"
+          style={{ backgroundColor: SEVERITY_COLORS[anomaly.severity] }}
+        />
+        <div className="min-w-0">
+          <div className="text-sm text-[#e5e5e5] leading-snug line-clamp-2">
+            {anomaly.title}
+          </div>
+          {/* AI context annotation */}
+          {anomaly.ai_context && (
+            <div className="text-xs text-[#888] mt-1 line-clamp-2 italic">
+              {anomaly.ai_context}
+            </div>
+          )}
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-[10px] text-[#666] bg-[#1a1a1a] px-1.5 py-0.5 rounded">
+              {DOMAIN_LABELS[anomaly.domain] ?? anomaly.domain}
+            </span>
+            <span className="text-[10px] text-[#555]">{timeAgo(anomaly.detected_at)}</span>
+          </div>
+        </div>
+      </div>
+    </button>
+  );
+}
+
 /* ── List View ── */
 
 function ListView({
+  highlighted,
   groups,
   onSelect,
 }: {
+  highlighted: Anomaly[];
   groups: Record<number, Anomaly[]>;
   onSelect: (id: string) => void;
 }) {
   return (
     <div className="py-2">
+      {/* Palomar's Picks — highlighted anomalies */}
+      {highlighted.length > 0 && (
+        <div className="mb-3">
+          <div className="px-5 py-1.5 text-[10px] font-medium uppercase tracking-wider text-[#a78bfa]">
+            Palomar&apos;s Picks ({highlighted.length})
+          </div>
+          {highlighted.map((a) => (
+            <div key={a.anomaly_id} className="border-l-2 border-[#a78bfa]">
+              <AnomalyCard anomaly={a} onSelect={onSelect} />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Severity groups — non-highlighted anomalies */}
       {[4, 3, 2, 1].map((sev) => {
         const items = groups[sev];
         if (!items || items.length === 0) return null;
@@ -110,29 +169,7 @@ function ListView({
               {items[0].severity_label} ({items.length})
             </div>
             {items.map((a) => (
-              <button
-                key={a.anomaly_id}
-                onClick={() => onSelect(a.anomaly_id)}
-                className="w-full text-left px-5 py-3 hover:bg-[#1a1a1a] transition-colors border-b border-[#1a1a1a]"
-              >
-                <div className="flex items-start gap-2.5">
-                  <span
-                    className="mt-1 w-2 h-2 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: SEVERITY_COLORS[a.severity] }}
-                  />
-                  <div className="min-w-0">
-                    <div className="text-sm text-[#e5e5e5] leading-snug line-clamp-2">
-                      {a.title}
-                    </div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[10px] text-[#666] bg-[#1a1a1a] px-1.5 py-0.5 rounded">
-                        {DOMAIN_LABELS[a.domain] ?? a.domain}
-                      </span>
-                      <span className="text-[10px] text-[#555]">{timeAgo(a.detected_at)}</span>
-                    </div>
-                  </div>
-                </div>
-              </button>
+              <AnomalyCard key={a.anomaly_id} anomaly={a} onSelect={onSelect} />
             ))}
           </div>
         );
@@ -158,10 +195,7 @@ function DetailView({ anomaly, onBack }: { anomaly: Anomaly; onBack: () => void 
 
       {/* Severity + Domain */}
       <div className="flex items-center gap-2 mb-2">
-        <span
-          className="w-2.5 h-2.5 rounded-full"
-          style={{ backgroundColor: color }}
-        />
+        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: color }} />
         <span className="text-xs font-medium uppercase tracking-wide" style={{ color }}>
           {anomaly.severity_label}
         </span>
@@ -174,6 +208,33 @@ function DetailView({ anomaly, onBack }: { anomaly: Anomaly; onBack: () => void 
       <h2 className="text-base font-medium text-[#e5e5e5] leading-snug mb-3">
         {anomaly.title}
       </h2>
+
+      {/* AI Highlight reason */}
+      {anomaly.ai_highlighted && anomaly.ai_highlight_reason && (
+        <div className="mb-4 px-3 py-2.5 bg-[#a78bfa]/10 border border-[#a78bfa]/20 rounded-lg">
+          <div className="text-[10px] font-medium uppercase tracking-wider text-[#a78bfa] mb-1">
+            Why this matters
+          </div>
+          <div className="text-xs text-[#c4b5fd] leading-relaxed">
+            {anomaly.ai_highlight_reason}
+          </div>
+        </div>
+      )}
+
+      {/* AI Context annotation */}
+      {anomaly.ai_context && (
+        <div className="mb-4 px-3 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
+          <div className="text-xs text-[#a3a3a3] leading-relaxed">
+            {anomaly.ai_context}
+          </div>
+          {anomaly.ai_model && (
+            <div className="text-[10px] text-[#555] mt-1.5">
+              Analyzed by {anomaly.ai_model}
+              {anomaly.ai_analyzed_at ? ` · ${timeAgo(anomaly.ai_analyzed_at)}` : ""}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Description */}
       <p className="text-sm text-[#a3a3a3] leading-relaxed mb-4">
@@ -203,7 +264,6 @@ function DetailView({ anomaly, onBack }: { anomaly: Anomaly; onBack: () => void 
           </div>
           <div className="space-y-1.5">
             {Object.entries(anomaly.metadata).map(([key, value]) => {
-              // Skip internal/complex fields
               if (key.startsWith("_") || typeof value === "object") return null;
               return (
                 <div key={key} className="flex justify-between text-xs">
