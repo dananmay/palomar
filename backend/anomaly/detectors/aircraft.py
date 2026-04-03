@@ -42,11 +42,19 @@ _SQUAWK_MEANINGS = {
 }
 
 # Speed/altitude limits by classification
+# Speeds between _SPEED_LIMITS and _SPEED_CAPS are flagged as anomalies.
+# Speeds above _SPEED_CAPS are ADS-B data corruption, not real anomalies.
 _SPEED_LIMITS = {
     "commercial_flights": 700,   # kts groundspeed (jet stream can push to ~650)
-    "private_flights": 600,
+    "private_flights": 400,      # lowered — light GA shouldn't exceed this
     "private_jets": 650,
     "tracked_flights": 700,
+}
+_SPEED_CAPS = {
+    "commercial_flights": 900,   # Above 900kts = bad data for any airliner
+    "private_flights": 500,      # Above 500kts = bad data for light GA (C172 max ~140kts)
+    "private_jets": 800,         # Above 800kts = bad data for business jets
+    "tracked_flights": 900,
 }
 _MAX_CIVILIAN_ALT = 60000  # feet
 
@@ -347,7 +355,11 @@ def _check_speed_altitude(snapshot: dict) -> list[Anomaly]:
         alt = f.get("alt")
         limit = _SPEED_LIMITS.get(category, 700)
 
+        cap = _SPEED_CAPS.get(category, 900)
+
         if speed is not None and speed > limit:
+            if speed > cap:
+                continue  # Above plausibility cap = ADS-B data corruption, not a real anomaly
             callsign = f.get("callsign", "Unknown")
             results.append(Anomaly.create(
                 domain="aircraft",
@@ -364,7 +376,7 @@ def _check_speed_altitude(snapshot: dict) -> list[Anomaly]:
                 lat=f.get("lat"),
                 lng=f.get("lng"),
                 metadata={"speed_knots": speed, "threshold": limit,
-                          "category": category, "callsign": callsign},
+                          "cap": cap, "category": category, "callsign": callsign},
             ))
 
         if alt is not None and alt > _MAX_CIVILIAN_ALT and category != "military_flights":
