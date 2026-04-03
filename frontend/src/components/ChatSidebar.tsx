@@ -201,7 +201,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={`max-w-[90%] rounded-lg px-3 py-2 text-sm leading-relaxed ${
           isUser
             ? "bg-[#1a1a1a] text-[#e5e5e5]"
-            : "text-[#a3a3a3]"
+            : "bg-[#141414] text-[#a3a3a3]"
         }`}
       >
         {isUser ? (
