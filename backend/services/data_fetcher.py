@@ -20,7 +20,7 @@ import concurrent.futures
 from datetime import datetime
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv(override=True)
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime

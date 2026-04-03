@@ -38,7 +38,10 @@ For each anomaly, write a one-line `context` that helps an analyst quickly under
 - Note scale or real-world impact: "35 hotspots is a large cluster — check proximity to populated areas"
 - Provide domain knowledge a statistical detector can't: "Aftershock pattern from Mar 28 M6.1"
 
-Bad annotations restate what the detector already said. The analyst can already see the title and description — add information they can't get from the raw data.
+Bad annotations:
+- Restate what the detector already said — the analyst can see the title and description
+- Attribute anomalies to unrelated events in distant regions — a fire in the Philippines has nothing to do with tensions in the Persian Gulf, even if both are in the news
+- Force connections between anomalies and news when the geographic or thematic link is weak
 
 ## How to highlight
 

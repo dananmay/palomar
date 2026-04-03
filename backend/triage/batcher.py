@@ -109,26 +109,17 @@ def _match_regional_news(news: list[dict], anomaly_grids: set[str]) -> str:
                 expanded_grids.add(f"{base_lat + dlat}:{base_lng + dlng}")
 
     matched: list[dict] = []
-    high_risk_general: list[dict] = []
 
     for article in news:
         coords = article.get("coords")
-        risk = article.get("risk_score", 0) or 0
+        if not coords or len(coords) < 2 or coords[0] is None or coords[1] is None:
+            continue  # Skip unlocated news — prevents irrelevant global headlines from leaking in
+        news_grid = _grid_key_4deg(coords[0], coords[1])
+        if news_grid in expanded_grids:
+            matched.append(article)
 
-        if coords and len(coords) >= 2 and coords[0] is not None and coords[1] is not None:
-            # News has coordinates — check grid match
-            news_grid = _grid_key_4deg(coords[0], coords[1])
-            if news_grid in expanded_grids:
-                matched.append(article)
-                continue
-
-        # High-risk unlocated news as general context
-        if risk >= 6:
-            high_risk_general.append(article)
-
-    # Combine matched + high-risk general, cap at 20
-    selected = matched[:15] + high_risk_general[:5]
-    selected = selected[:20]
+    # Only geographically matched news, cap at 20
+    selected = matched[:20]
 
     if not selected:
         return "No relevant regional news found."
