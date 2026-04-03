@@ -1,9 +1,10 @@
-"""GDELT/News anomaly detector — 3 rules for Tier 1 detection.
+"""GDELT/News anomaly detector — 4 rules for Tier 1 detection.
 
 Rules:
 1. risk_escalation — Regional news risk score jumps significantly
 2. news_surge — Sudden spike in news articles about a region
 3. gdelt_density_change — GDELT conflict event count changes significantly
+4. news_risk_acceleration — Cycle-over-cycle risk score jump in a region
 
 Note: GDELT data uses GeoJSON coordinate order [lng, lat].
 News data uses [lat, lng]. Handle both correctly.
@@ -25,6 +26,10 @@ _gdelt_baseline = RollingBaseline(window_seconds=43200)  # 12h for conflict dens
 # Risk score jump threshold (absolute points)
 _RISK_JUMP_THRESHOLD = 3
 
+# Module-level state for risk acceleration tracking (cycle-over-cycle)
+_prev_risk: dict[str, int] = {}
+_warmup_done: bool = False
+
 
 def detect(snapshot: dict) -> list[Anomaly]:
     """Run all GDELT/news anomaly rules."""
@@ -32,6 +37,7 @@ def detect(snapshot: dict) -> list[Anomaly]:
     anomalies.extend(_check_risk_escalation(snapshot))
     anomalies.extend(_check_news_surge(snapshot))
     anomalies.extend(_check_gdelt_density(snapshot))
+    anomalies.extend(_check_news_risk_acceleration(snapshot))
     return anomalies
 
 
@@ -217,5 +223,73 @@ def _check_gdelt_density(snapshot: dict) -> list[Anomaly]:
                 lng=coords[0] if coords else None,
                 metadata={"grid": gk, "count": count, "z_score": round(z, 2)},
             ))
+
+    return results
+
+
+def _check_news_risk_acceleration(snapshot: dict) -> list[Anomaly]:
+    """Rule 4: Cycle-over-cycle risk score jump in a region.
+
+    Tracks max news risk_score per 4-degree grid cell between detection cycles.
+    Flags cells where risk jumped by >= 3 points AND current max >= 5.
+    First cycle is warmup only (records baseline, no alerts).
+    """
+    global _prev_risk, _warmup_done
+    results = []
+    news = snapshot.get("news", [])
+
+    # Build current max risk per grid cell
+    current_risk: dict[str, tuple[int, dict]] = {}  # gk -> (max_risk, article)
+    for article in news:
+        coords = article.get("coords")
+        if not coords or len(coords) < 2:
+            continue
+        lat, lng = coords[0], coords[1]
+        if lat is None or lng is None:
+            continue
+        gk = grid_key(lat, lng, resolution=4)
+        risk = article.get("risk_score", 0) or 0
+        if gk not in current_risk or risk > current_risk[gk][0]:
+            current_risk[gk] = (risk, article)
+
+    if not _warmup_done:
+        # First cycle: just record and mark warmup done
+        _prev_risk = {gk: risk for gk, (risk, _) in current_risk.items()}
+        _warmup_done = True
+        return results
+
+    # Compare current to previous cycle
+    for gk, (cur_max, article) in current_risk.items():
+        prev_max = _prev_risk.get(gk, 0)
+        jump = cur_max - prev_max
+        if jump >= 3 and cur_max >= 5:
+            severity = Severity.HIGH if (jump >= 5 or cur_max >= 8) else Severity.MEDIUM
+            coords = article.get("coords", [None, None])
+            results.append(Anomaly.create(
+                domain="gdelt",
+                rule="news_risk_acceleration",
+                severity=severity,
+                title=f"Risk acceleration in {gk}: {prev_max} -> {cur_max} (+{jump})",
+                description=(
+                    f"News risk score in region {gk} jumped from {prev_max} to "
+                    f"{cur_max} (+{jump} points) between detection cycles. "
+                    f"Top article: {article.get('title', 'N/A')[:80]}"
+                ),
+                entity_id=gk,
+                ttl=600,
+                lat=coords[0] if coords else None,
+                lng=coords[1] if len(coords) > 1 else None,
+                metadata={
+                    "grid": gk,
+                    "current_risk": cur_max,
+                    "previous_risk": prev_max,
+                    "jump": jump,
+                    "top_article_title": article.get("title", "")[:100],
+                    "top_article_source": article.get("source", ""),
+                },
+            ))
+
+    # Update previous risk for next cycle
+    _prev_risk = {gk: risk for gk, (risk, _) in current_risk.items()}
 
     return results

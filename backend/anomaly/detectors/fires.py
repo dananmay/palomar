@@ -1,9 +1,10 @@
-"""Fire/thermal anomaly detector — 3 rules for Tier 1 detection.
+"""Fire/thermal anomaly detector — 4 rules for Tier 1 detection.
 
 Rules:
 1. fire_near_nuclear_plant — FIRMS hotspot within 10km of a nuclear power plant
 2. fire_near_military_base — FIRMS hotspot within 10km of a military base
 3. fire_cluster_surge — Unusual concentration of fires in a region
+4. fire_in_conflict_zone — High-FRP fire in a GDELT conflict hotspot
 """
 from __future__ import annotations
 
@@ -30,6 +31,7 @@ def detect(snapshot: dict) -> list[Anomaly]:
     anomalies.extend(_check_fire_near_nuclear(snapshot))
     anomalies.extend(_check_fire_near_military_base(snapshot))
     anomalies.extend(_check_fire_cluster_surge(snapshot))
+    anomalies.extend(_check_fire_in_conflict_zone(snapshot))
     return anomalies
 
 
@@ -202,5 +204,88 @@ def _check_fire_cluster_surge(snapshot: dict) -> list[Anomaly]:
                 lng=sample.get("lng"),
                 metadata={"grid": gk, "count": count, "z_score": round(z, 2)},
             ))
+
+    return results
+
+
+def _check_fire_in_conflict_zone(snapshot: dict) -> list[Anomaly]:
+    """Rule 4: High-FRP fire in a GDELT conflict hotspot.
+
+    Cross-references FIRMS fires against GDELT conflict density. Flags fires
+    with FRP > 30 that fall in a 4-degree grid cell with >= 10 GDELT events.
+    """
+    results = []
+    fires = snapshot.get("firms_fires", [])
+    if not fires:
+        return results
+
+    # Build GDELT conflict grid (count events per 4° cell)
+    gdelt = snapshot.get("gdelt", [])
+    if not gdelt:
+        return results
+
+    features = gdelt
+    if isinstance(gdelt, dict):
+        features = gdelt.get("features", [])
+
+    conflict_grid: dict[str, int] = {}
+    for feature in features:
+        if not isinstance(feature, dict):
+            continue
+        geom = feature.get("geometry", {})
+        coords = geom.get("coordinates", [])
+        if not coords or len(coords) < 2:
+            continue
+        # GeoJSON uses [lng, lat] order — swap
+        lng, lat = coords[0], coords[1]
+        if lat is None or lng is None:
+            continue
+        gk = grid_key(lat, lng, resolution=4)
+        conflict_grid[gk] = conflict_grid.get(gk, 0) + 1
+
+    if not conflict_grid:
+        return results
+
+    # Check each fire against the conflict grid
+    seen_cells: set[str] = set()
+    for fire in fires:
+        frp = fire.get("frp", 0) or 0
+        if frp <= 30:
+            continue
+        f_lat = fire.get("lat")
+        f_lng = fire.get("lng")
+        if f_lat is None or f_lng is None:
+            continue
+
+        gk = grid_key(f_lat, f_lng, resolution=4)
+        if gk in seen_cells:
+            continue  # One anomaly per grid cell
+        gdelt_count = conflict_grid.get(gk, 0)
+        if gdelt_count < 10:
+            continue
+
+        seen_cells.add(gk)
+        severity = Severity.CRITICAL if frp > 100 else Severity.HIGH
+        results.append(Anomaly.create(
+            domain="fires",
+            rule="fire_in_conflict_zone",
+            severity=severity,
+            title=f"Fire in conflict zone {gk}: FRP={frp:.0f}MW, {gdelt_count} GDELT events",
+            description=(
+                f"Thermal anomaly (FRP={frp:.0f}MW) detected in grid cell {gk} "
+                f"which has {gdelt_count} GDELT conflict events. High fire power "
+                f"in an active conflict zone may indicate deliberate destruction."
+            ),
+            entity_id=gk,
+            ttl=1800,
+            lat=f_lat,
+            lng=f_lng,
+            metadata={
+                "grid": gk,
+                "fire_frp": frp,
+                "gdelt_event_count": gdelt_count,
+                "fire_confidence": fire.get("confidence"),
+            },
+        ))
 
     return results

@@ -216,6 +216,18 @@ try:
 except ImportError as e:
     logger.warning(f"Cross-domain detector not available: {e}")
 
+try:
+    from anomaly.detectors.carriers import detect as detect_carriers
+    engine.register("slow", detect_carriers)
+except ImportError as e:
+    logger.warning(f"Carriers detector not available: {e}")
+
+try:
+    from anomaly.detectors.conflict import detect as detect_conflict
+    engine.register("slow", detect_conflict)
+except ImportError as e:
+    logger.warning(f"Conflict detector not available: {e}")
+
 
 def run_detection(tier: str, snapshot: dict) -> None:
     """Module-level entry point called by data_fetcher.py."""

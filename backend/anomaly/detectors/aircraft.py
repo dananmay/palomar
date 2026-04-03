@@ -1,4 +1,4 @@
-"""Aircraft anomaly detector — 8 rules for Tier 1 detection.
+"""Aircraft anomaly detector — 9 rules for Tier 1 detection.
 
 Rules:
 1. emergency_squawk — Squawk 7500 (hijack), 7600 (radio failure), 7700 (emergency)
@@ -9,6 +9,7 @@ Rules:
 6. speed_altitude_anomaly — Impossible speed or altitude for aircraft type
 7. unusual_military_type — New military aircraft type appears in a grid cell
 8. military_tanker_surge — Surge in cargo/tanker military aircraft in a grid cell
+9. tracked_convergence — Different-operator tracked aircraft converging away from airports
 """
 from __future__ import annotations
 
@@ -16,7 +17,7 @@ import logging
 import time
 from anomaly.models import Anomaly, Severity
 from anomaly.baselines import RollingBaseline
-from anomaly.rules import grid_key, is_near_airport
+from anomaly.rules import grid_key, haversine_km, is_near_airport
 
 logger = logging.getLogger("anomaly.detectors.aircraft")
 
@@ -80,6 +81,7 @@ def detect(snapshot: dict) -> list[Anomaly]:
     anomalies.extend(_check_speed_altitude(snapshot))
     anomalies.extend(_check_unusual_military_type(snapshot))
     anomalies.extend(_check_military_tanker_surge(snapshot))
+    anomalies.extend(_check_tracked_convergence(snapshot))
     return anomalies
 
 
@@ -519,6 +521,83 @@ def _check_military_tanker_surge(snapshot: dict) -> list[Anomaly]:
                 metadata={
                     "grid": gk, "count": count, "z_score": round(z, 2),
                     "aircraft": [f.get("callsign", "?") for f in grid_samples[gk][:5]],
+                },
+            ))
+
+    return results
+
+
+def _check_tracked_convergence(snapshot: dict) -> list[Anomaly]:
+    """Rule 9: Different-operator tracked aircraft converging away from airports.
+
+    Flags pairs of tracked flights (excluding helicopters and aircraft without
+    an alert_operator) that are within 30km of each other, operated by different
+    entities, and both >100km from any major airport.
+    """
+    results = []
+    airports = snapshot.get("airports", [])
+    if not airports:
+        return results
+
+    tracked = snapshot.get("tracked_flights", [])
+    # Filter: exclude helicopters and aircraft with empty/missing alert_operator
+    candidates = []
+    for f in tracked:
+        if f.get("aircraft_category") == "heli":
+            continue
+        operator = (f.get("alert_operator") or "").strip()
+        if not operator:
+            continue
+        lat, lng = f.get("lat"), f.get("lng")
+        if lat is None or lng is None:
+            continue
+        candidates.append(f)
+
+    # Pairwise distance check
+    for i in range(len(candidates)):
+        for j in range(i + 1, len(candidates)):
+            a, b = candidates[i], candidates[j]
+            # Must be different operators
+            op_a = (a.get("alert_operator") or "").strip()
+            op_b = (b.get("alert_operator") or "").strip()
+            if op_a == op_b:
+                continue
+
+            dist = haversine_km(a["lat"], a["lng"], b["lat"], b["lng"])
+            if dist > 30:
+                continue
+
+            # Both must be >100km from any major airport
+            if is_near_airport(a["lat"], a["lng"], airports, max_distance_km=100.0):
+                continue
+            if is_near_airport(b["lat"], b["lng"], airports, max_distance_km=100.0):
+                continue
+
+            icao_a = a.get("icao24", "???")
+            icao_b = b.get("icao24", "???")
+            entity_id = ":".join(sorted([icao_a, icao_b]))
+            call_a = a.get("callsign", icao_a)
+            call_b = b.get("callsign", icao_b)
+
+            results.append(Anomaly.create(
+                domain="aircraft",
+                rule="tracked_convergence",
+                severity=Severity.HIGH,
+                title=f"Tracked aircraft convergence: {call_a} / {call_b} ({dist:.0f}km)",
+                description=(
+                    f"Tracked aircraft {call_a} ({op_a}) and {call_b} ({op_b}) "
+                    f"are within {dist:.1f}km of each other, both >100km from "
+                    f"any major airport. Different operators suggest unrelated "
+                    f"missions in close proximity."
+                ),
+                entity_id=entity_id,
+                ttl=300,
+                lat=a["lat"],
+                lng=a["lng"],
+                metadata={
+                    "aircraft_a": {"icao24": icao_a, "callsign": call_a, "operator": op_a},
+                    "aircraft_b": {"icao24": icao_b, "callsign": call_b, "operator": op_b},
+                    "distance_km": round(dist, 1),
                 },
             ))
 
