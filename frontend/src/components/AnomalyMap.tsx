@@ -73,7 +73,7 @@ export default function AnomalyMap({ anomalies, selectedId, onSelect, onCursorMo
 
       // Pointer cursor on anomaly markers
       const map = mapRef.current?.getMap();
-      if (map) {
+      if (map && map.getLayer(ANOMALY_LAYER_ID)) {
         const features = map.queryRenderedFeatures(e.point, { layers: [ANOMALY_LAYER_ID] });
         map.getCanvas().style.cursor = features.length > 0 ? "pointer" : "";
       }
