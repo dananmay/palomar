@@ -209,37 +209,50 @@ def _check_gps_jamming(snapshot: dict) -> list[Anomaly]:
 
 
 def _check_unusual_holding(snapshot: dict) -> list[Anomaly]:
-    """Rule 4: Holding patterns far from any airport."""
+    """Rule 4: Holding patterns far from any airport.
+
+    Only flags military and tracked aircraft. Excludes helicopters (they circle
+    by nature) and commercial/private/GA aircraft (routine holding).
+    Airport exclusion radius is 100km to cover approach corridors.
+    """
     results = []
     airports = snapshot.get("airports", [])
     if not airports:
-        # Airports not loaded yet (startup race) — skip this rule
         return results
 
-    for category, f in _all_flights(snapshot):
-        if not f.get("holding"):
-            continue
-        lat, lng = f.get("lat"), f.get("lng")
-        if lat is None or lng is None:
-            continue
-        if not is_near_airport(lat, lng, airports, max_distance_km=50.0):
-            callsign = f.get("callsign", "Unknown")
-            results.append(Anomaly.create(
-                domain="aircraft",
-                rule="unusual_holding",
-                severity=Severity.LOW,
-                title=f"Unusual holding pattern: {callsign}",
-                description=(
-                    f"Aircraft {callsign} ({f.get('model', '?')}) is holding "
-                    f"at ({lat:.2f}, {lng:.2f}), >50km from any major airport."
-                ),
-                entity_id=f.get("icao24", callsign),
-                ttl=120,
-                lat=lat,
-                lng=lng,
-                metadata={"callsign": callsign, "model": f.get("model"),
-                          "altitude": f.get("alt"), "category": category},
-            ))
+    # Only check military and tracked flights — commercial/private holding is routine
+    interesting_categories = ("military_flights", "tracked_flights")
+    for category in interesting_categories:
+        for f in snapshot.get(category, []):
+            if not f.get("holding"):
+                continue
+            # Exclude helicopters — they circle by nature
+            if f.get("aircraft_category") == "heli" or f.get("military_type") == "heli":
+                continue
+            model = (f.get("model") or "").upper()
+            if any(h in model for h in ("H60", "H53", "H47", "H64", "A139", "EC35", "R44", "R66", "B06", "B07", "S70", "NH90", "AW1")):
+                continue
+            lat, lng = f.get("lat"), f.get("lng")
+            if lat is None or lng is None:
+                continue
+            if not is_near_airport(lat, lng, airports, max_distance_km=100.0):
+                callsign = f.get("callsign", "Unknown")
+                results.append(Anomaly.create(
+                    domain="aircraft",
+                    rule="unusual_holding",
+                    severity=Severity.LOW,
+                    title=f"Unusual holding pattern: {callsign}",
+                    description=(
+                        f"Aircraft {callsign} ({f.get('model', '?')}) is holding "
+                        f"at ({lat:.2f}, {lng:.2f}), >100km from any major airport."
+                    ),
+                    entity_id=f.get("icao24", callsign),
+                    ttl=120,
+                    lat=lat,
+                    lng=lng,
+                    metadata={"callsign": callsign, "model": f.get("model"),
+                              "altitude": f.get("alt"), "category": category},
+                ))
 
     return results
 
