@@ -164,7 +164,12 @@ export default function ChatSidebar({ selectedAnomalyId }: Props) {
           <textarea
             ref={textareaRef}
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => {
+              setInput(e.target.value);
+              // Auto-resize
+              e.target.style.height = "auto";
+              e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
+            }}
             onKeyDown={handleKeyDown}
             placeholder={available ? "Ask about anomalies..." : "Analyst not configured"}
             disabled={!available || isLoading}
