@@ -47,14 +47,14 @@ _SQUAWK_MEANINGS = {
 # Speeds above _SPEED_CAPS are ADS-B data corruption, not real anomalies.
 _SPEED_LIMITS = {
     "commercial_flights": 700,   # kts groundspeed (jet stream can push to ~650)
-    "private_flights": 400,      # lowered — light GA shouldn't exceed this
-    "private_jets": 650,
+    "private_flights": 700,      # same as commercial — many misclassified jets end up here
+    "private_jets": 700,         # aligned — business jets cruise at similar speeds
     "tracked_flights": 700,
 }
 _SPEED_CAPS = {
     "commercial_flights": 900,   # Above 900kts = bad data for any airliner
-    "private_flights": 500,      # Above 500kts = bad data for light GA (C172 max ~140kts)
-    "private_jets": 800,         # Above 800kts = bad data for business jets
+    "private_flights": 900,      # aligned with commercial (misclassified jets)
+    "private_jets": 900,         # aligned
     "tracked_flights": 900,
 }
 _MAX_CIVILIAN_ALT = 60000  # feet
