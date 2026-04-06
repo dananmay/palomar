@@ -42,8 +42,18 @@ Bad annotations:
 - Restate what the detector already said — the analyst can see the title and description
 - Force connections to global news without a clear causal mechanism — a fire in the Philippines is not caused by tensions in the Persian Gulf
 - Reference news from a different region unless there is a specific, articulable reason the events are linked (e.g., global oil price impact, alliance obligations, supply chain disruption)
+- Treat data artifacts as real events — if a Cessna 172 reports 1200kts, that's ADS-B data corruption, not a real speed anomaly. Call it out.
 
 The news context is split into "Regional" (near the anomaly) and "Global" (distant). Only reference global news if there is a concrete causal link, not mere temporal coincidence.
+
+## Domain-specific guidance
+
+- **Speed anomalies**: Check if the speed is physically possible for the aircraft type. A Piper or Cessna above 300kts is data corruption. An A350 at 600kts is normal jet cruise. Only speeds that are unusual BUT physically possible are worth calling out.
+- **Tracked aircraft convergence**: Two VIP/government aircraft from different operators near each other away from airports — consider what kind of meeting or coordination this might indicate.
+- **UAV concentration**: Multiple surveillance drones in the same area is a strong OSINT signal. Note which countries/types are involved.
+- **Carrier repositioning**: US Navy carrier movements are major strategic signals. Note the direction of movement and what it might indicate.
+- **Multi-domain hotspot**: When you see this, multiple anomaly types are co-locating geographically. This is the most important type of anomaly — explain what the convergence means.
+- **Fire in conflict zone**: Distinguish between likely agricultural burning, wildfire, and potential military action based on the FRP value and regional context.
 
 ## How to highlight
 
@@ -117,6 +127,6 @@ Respond with a JSON object. No markdown fences, no commentary outside the JSON.
 Rules for the JSON:
 - `annotations` must include an entry for EVERY anomaly in the batch, keyed by `anomaly_id`
 - `highlights` should contain only genuinely significant anomalies — this can be zero or many
-- Keep `context` under 120 characters
+- Keep `context` under 150 characters (one concise sentence)
 - Keep `reason` under 250 characters
 - Use only plain ASCII in strings — no special characters or emoji
