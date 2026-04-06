@@ -58,7 +58,7 @@ export default function Home() {
           </button>
           <button
             onClick={() => setRightCollapsed(!rightCollapsed)}
-            className="absolute right-0 top-4 z-10 bg-[#141414] border border-[#2a2a2a] border-r-0 rounded-l-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
+            className="absolute right-0 top-24 z-10 bg-[#141414] border border-[#2a2a2a] border-r-0 rounded-l-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
             title={rightCollapsed ? "Show chat" : "Hide chat"}
           >
             {rightCollapsed ? <MessageSquare size={18} /> : <ChevronRight size={18} />}
