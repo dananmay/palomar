@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft } from "lucide-react";
 import { API_BASE } from "@/lib/api";
 import type { Anomaly } from "@/types/anomaly";
@@ -62,6 +63,18 @@ function timeAgo(ts: number): string {
 
 export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDeselect, status }: Props) {
   const [triageRunning, setTriageRunning] = useState(false);
+  const [triageComplete, setTriageComplete] = useState(false);
+  const prevRunningRef = useRef(false);
+
+  // Detect triage completion: running -> not running
+  useEffect(() => {
+    if (prevRunningRef.current && !triageRunning) {
+      setTriageComplete(true);
+      const timer = setTimeout(() => setTriageComplete(false), 1000);
+      return () => clearTimeout(timer);
+    }
+    prevRunningRef.current = triageRunning;
+  }, [triageRunning]);
 
   const runTriage = useCallback(async () => {
     setTriageRunning(true);
@@ -114,14 +127,14 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
             onClick={runTriage}
             disabled={triageRunning || anomalies.length === 0}
             title="Run AI triage"
-            className="text-[10px] px-2 py-1 bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] rounded hover:bg-[#a78bfa]/20 transition-colors disabled:opacity-30"
+            className={`text-[10px] px-2 py-1 bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] rounded hover:bg-[#a78bfa]/20 transition-colors disabled:opacity-30 ${triageRunning ? 'animate-[triage-pulse_1.5s_ease-in-out_infinite]' : ''} ${triageComplete ? 'animate-[triage-complete_1s_ease]' : ''}`}
           >
             {triageRunning ? "Running..." : "Triage"}
           </button>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span
-            className="w-1.5 h-1.5 rounded-full"
+            className={`w-1.5 h-1.5 rounded-full ${status === "connected" ? "animate-[status-pulse_2s_ease-in-out_infinite]" : ""}`}
             style={{
               backgroundColor:
                 status === "connected" ? "#22c55e" : status === "connecting" ? "#eab308" : "#ef4444",
@@ -139,13 +152,21 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        {selected ? (
-          <DetailView anomaly={selected} onBack={onDeselect} />
-        ) : anomalies.length === 0 ? (
-          <EmptyState status={status} />
-        ) : (
-          <ListView highlighted={highlighted} groups={grouped} onSelect={onSelect} />
-        )}
+        <AnimatePresence mode="wait">
+          {selected ? (
+            <motion.div key="detail" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} transition={{ duration: 0.15 }}>
+              <DetailView anomaly={selected} onBack={onDeselect} />
+            </motion.div>
+          ) : anomalies.length === 0 ? (
+            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.15 }}>
+              <EmptyState status={status} />
+            </motion.div>
+          ) : (
+            <motion.div key="list" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} transition={{ duration: 0.15 }}>
+              <ListView highlighted={highlighted} groups={grouped} onSelect={onSelect} />
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </aside>
   );

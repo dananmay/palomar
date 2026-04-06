@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { ChevronLeft, ChevronRight, AlertTriangle, MessageSquare } from "lucide-react";
 import AnomalySidebar from "@/components/AnomalySidebar";
@@ -17,6 +17,18 @@ export default function Home() {
   const { mouseCoords, locationLabel, handleMouseCoords } = useReverseGeocode();
   const [leftCollapsed, setLeftCollapsed] = useState(false);
   const [rightCollapsed, setRightCollapsed] = useState(false);
+  const [tabFlash, setTabFlash] = useState(false);
+  const prevCountRef = useRef(anomalies.length);
+
+  // Flash the left toggle tab when new anomalies arrive while sidebar is collapsed
+  useEffect(() => {
+    if (leftCollapsed && anomalies.length > prevCountRef.current) {
+      setTabFlash(true);
+      const timer = setTimeout(() => setTabFlash(false), 1000);
+      return () => clearTimeout(timer);
+    }
+    prevCountRef.current = anomalies.length;
+  }, [anomalies.length, leftCollapsed]);
 
   const handleCursorMove = useCallback(
     (lat: number, lng: number) => handleMouseCoords({ lat, lng }),
@@ -26,15 +38,17 @@ export default function Home() {
   return (
     <div className="flex h-screen w-screen bg-[#0a0a0a]">
       {/* Left: Anomaly sidebar */}
-      {!leftCollapsed && (
-        <AnomalySidebar
-          anomalies={anomalies}
-          selectedId={selectedId}
-          onSelect={setSelectedId}
-          onDeselect={() => setSelectedId(null)}
-          status={status}
-        />
-      )}
+      <div className={`transition-all duration-200 overflow-hidden ${leftCollapsed ? 'w-0' : 'w-80'}`}>
+        <div className="w-80 h-full">
+          <AnomalySidebar
+            anomalies={anomalies}
+            selectedId={selectedId}
+            onSelect={setSelectedId}
+            onDeselect={() => setSelectedId(null)}
+            status={status}
+          />
+        </div>
+      </div>
 
       {/* Center: Map + coordinate bar */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -51,7 +65,7 @@ export default function Home() {
           {/* Floating collapse/expand toggles */}
           <button
             onClick={() => setLeftCollapsed(!leftCollapsed)}
-            className="absolute left-0 top-4 z-10 bg-[#141414] border border-[#2a2a2a] border-l-0 rounded-r-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
+            className={`absolute left-0 top-4 z-10 bg-[#141414] border border-[#2a2a2a] border-l-0 rounded-r-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors ${tabFlash ? 'animate-[tab-flash_1s_ease]' : ''}`}
             title={leftCollapsed ? "Show anomalies" : "Hide anomalies"}
           >
             {leftCollapsed ? <AlertTriangle size={20} /> : <ChevronLeft size={18} />}
@@ -82,9 +96,11 @@ export default function Home() {
       </div>
 
       {/* Right: Chat sidebar */}
-      {!rightCollapsed && (
-        <ChatSidebar selectedAnomalyId={selectedId} />
-      )}
+      <div className={`transition-all duration-200 overflow-hidden ${rightCollapsed ? 'w-0' : 'w-80'}`}>
+        <div className="w-80 h-full border-l border-[#2a2a2a]">
+          <ChatSidebar selectedAnomalyId={selectedId} />
+        </div>
+      </div>
     </div>
   );
 }

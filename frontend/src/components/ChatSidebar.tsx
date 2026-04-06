@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { Send } from "lucide-react";
 import Markdown from "react-markdown";
 import { API_BASE } from "@/lib/api";
@@ -23,6 +24,12 @@ export default function ChatSidebar({ selectedAnomalyId }: Props) {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const prevMessageCount = useRef(0);
+
+  // Track message count for slide-in animation
+  useEffect(() => {
+    prevMessageCount.current = messages.length;
+  }, [messages.length]);
 
   // Check availability on mount
   useEffect(() => {
@@ -105,13 +112,13 @@ export default function ChatSidebar({ selectedAnomalyId }: Props) {
   };
 
   return (
-    <aside className="w-80 h-full flex flex-col border-l border-[#2a2a2a] bg-[#0a0a0a]">
+    <aside className="w-80 h-full flex flex-col bg-[#0a0a0a]">
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#2a2a2a]">
         <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Mr. Palomar</h1>
         <div className="flex items-center gap-2 mt-1">
           <span
-            className="w-1.5 h-1.5 rounded-full"
+            className={`w-1.5 h-1.5 rounded-full ${available === true ? "animate-[status-pulse_2s_ease-in-out_infinite]" : ""}`}
             style={{
               backgroundColor: available === true ? "#22c55e" : available === false ? "#ef4444" : "#666",
             }}
@@ -128,21 +135,34 @@ export default function ChatSidebar({ selectedAnomalyId }: Props) {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-3">
-        {messages.length === 0 && !isLoading ? (
-          <EmptyState
-            available={available}
-            configError={configError}
-            onSuggestion={sendMessage}
-          />
-        ) : (
-          <div className="space-y-4">
-            {messages.map((msg, i) => (
-              <MessageBubble key={i} message={msg} />
-            ))}
-            {isLoading && <TypingIndicator />}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
+        <AnimatePresence mode="wait">
+          {messages.length === 0 && !isLoading ? (
+            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              <EmptyState
+                available={available}
+                configError={configError}
+                onSuggestion={sendMessage}
+              />
+            </motion.div>
+          ) : (
+            <motion.div key="messages" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
+              <div className="space-y-4">
+                {messages.map((msg, i) => (
+                  <motion.div
+                    key={i}
+                    initial={i >= prevMessageCount.current ? { opacity: 0, y: 10 } : false}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <MessageBubble message={msg} />
+                  </motion.div>
+                ))}
+                {isLoading && <TypingIndicator />}
+                <div ref={messagesEndRef} />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Error */}
         {error && (

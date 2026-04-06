@@ -57,6 +57,27 @@ export default function AnomalyMap({ anomalies, selectedId, onSelect, onCursorMo
     }
   }, [selectedId, anomalies]);
 
+  // Animate critical pulse and selected glow layers
+  useEffect(() => {
+    let frameId: number;
+    const animate = () => {
+      const map = mapRef.current?.getMap();
+      if (map) {
+        const t = Date.now() / 1000;
+        if (map.getLayer('anomaly-critical-pulse')) {
+          map.setPaintProperty('anomaly-critical-pulse', 'circle-radius', 10 + 6 * Math.sin(t * 2));
+          map.setPaintProperty('anomaly-critical-pulse', 'circle-opacity', 0.15 + 0.2 * Math.sin(t * 2));
+        }
+        if (map.getLayer('anomaly-selected-glow')) {
+          map.setPaintProperty('anomaly-selected-glow', 'circle-stroke-opacity', 0.3 + 0.3 * Math.sin(t * 3));
+        }
+      }
+      frameId = requestAnimationFrame(animate);
+    };
+    frameId = requestAnimationFrame(animate);
+    return () => cancelAnimationFrame(frameId);
+  }, []);
+
   const handleClick = useCallback(
     (e: MapLayerMouseEvent) => {
       const feature = e.features?.[0];
@@ -100,6 +121,17 @@ export default function AnomalyMap({ anomalies, selectedId, onSelect, onCursorMo
       <NavigationControl position="bottom-right" showCompass={false} />
 
       <Source id="anomalies" type="geojson" data={geojson}>
+        {/* Pulse ring for CRITICAL (severity 4) anomalies */}
+        <Layer
+          id="anomaly-critical-pulse"
+          type="circle"
+          filter={["==", ["get", "severity"], 4]}
+          paint={{
+            "circle-radius": 12,
+            "circle-color": "#ef4444",
+            "circle-opacity": 0.3,
+          }}
+        />
         {/* Outer glow for selected anomaly */}
         <Layer
           id="anomaly-selected-glow"
