@@ -230,6 +230,12 @@ try:
 except ImportError as e:
     logger.warning(f"Conflict detector not available: {e}")
 
+try:
+    from anomaly.detectors.hotspot import detect as detect_hotspot
+    engine.register("slow", detect_hotspot)
+except ImportError as e:
+    logger.warning(f"Hotspot detector not available: {e}")
+
 
 def run_detection(tier: str, snapshot: dict) -> None:
     """Module-level entry point called by data_fetcher.py."""

@@ -28,6 +28,9 @@ const DOMAIN_LABELS: Record<string, string> = {
   fires: "Fires",
   infrastructure: "Infrastructure",
   cross_domain: "Cross-domain",
+  hotspot: "Hotspot",
+  carriers: "Carriers",
+  conflict: "Conflict",
 };
 
 function timeAgo(ts: number): string {

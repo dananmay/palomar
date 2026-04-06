@@ -29,6 +29,7 @@ _RISK_JUMP_THRESHOLD = 3
 # Module-level state for risk acceleration tracking (cycle-over-cycle)
 _prev_risk: dict[str, int] = {}
 _warmup_done: bool = False
+_acceleration_cooldown: set[str] = set()  # Grid keys that fired last cycle (skip to prevent oscillation re-firing)
 
 
 def detect(snapshot: dict) -> list[Anomaly]:
@@ -74,7 +75,7 @@ def _check_risk_escalation(snapshot: dict) -> list[Anomaly]:
         baseline_mean = _risk_baseline.mean(gk)
         if baseline_mean is not None and risk > baseline_mean + _RISK_JUMP_THRESHOLD:
             # Need enough samples for meaningful comparison
-            if _risk_baseline.count(gk) < 3:
+            if _risk_baseline.count(gk) < 6:
                 continue
 
             coords = article.get("coords", [None, None])
@@ -134,7 +135,7 @@ def _check_news_surge(snapshot: dict) -> list[Anomaly]:
     for gk, count in grid_counts.items():
         _news_baseline.record(gk, count)
         is_anom, z = _news_baseline.is_anomalous(
-            gk, count, sigma=2.0, min_samples=5, min_abs_deviation=3,
+            gk, count, sigma=2.0, min_samples=5, min_abs_deviation=6,
         )
         if is_anom:
             sample = grid_sample[gk]
@@ -200,7 +201,7 @@ def _check_gdelt_density(snapshot: dict) -> list[Anomaly]:
     for gk, count in grid_counts.items():
         _gdelt_baseline.record(gk, count)
         is_anom, z = _gdelt_baseline.is_anomalous(
-            gk, count, sigma=2.0, min_samples=3, min_abs_deviation=5,
+            gk, count, sigma=2.0, min_samples=7, min_abs_deviation=10,
         )
         if is_anom:
             sample = grid_sample[gk]
@@ -234,7 +235,7 @@ def _check_news_risk_acceleration(snapshot: dict) -> list[Anomaly]:
     Flags cells where risk jumped by >= 3 points AND current max >= 5.
     First cycle is warmup only (records baseline, no alerts).
     """
-    global _prev_risk, _warmup_done
+    global _prev_risk, _warmup_done, _acceleration_cooldown
     results = []
     news = snapshot.get("news", [])
 
@@ -259,7 +260,10 @@ def _check_news_risk_acceleration(snapshot: dict) -> list[Anomaly]:
         return results
 
     # Compare current to previous cycle
+    fired_this_cycle: set[str] = set()
     for gk, (cur_max, article) in current_risk.items():
+        if gk in _acceleration_cooldown:
+            continue  # Skip — this region fired last cycle (prevent oscillation re-firing)
         prev_max = _prev_risk.get(gk, 0)
         jump = cur_max - prev_max
         if jump >= 3 and cur_max >= 5:
@@ -288,8 +292,10 @@ def _check_news_risk_acceleration(snapshot: dict) -> list[Anomaly]:
                     "top_article_source": article.get("source", ""),
                 },
             ))
+            fired_this_cycle.add(gk)
 
-    # Update previous risk for next cycle
+    # Update state for next cycle
     _prev_risk = {gk: risk for gk, (risk, _) in current_risk.items()}
+    _acceleration_cooldown = fired_this_cycle
 
     return results

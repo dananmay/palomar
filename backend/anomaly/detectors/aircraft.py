@@ -1,4 +1,4 @@
-"""Aircraft anomaly detector — 9 rules for Tier 1 detection.
+"""Aircraft anomaly detector — 10 rules for Tier 1 detection.
 
 Rules:
 1. emergency_squawk — Squawk 7500 (hijack), 7600 (radio failure), 7700 (emergency)
@@ -10,6 +10,7 @@ Rules:
 7. unusual_military_type — New military aircraft type appears in a grid cell
 8. military_tanker_surge — Surge in cargo/tanker military aircraft in a grid cell
 9. tracked_convergence — Different-operator tracked aircraft converging away from airports
+10. uav_concentration — Multiple UAVs detected in same geographic area
 """
 from __future__ import annotations
 
@@ -82,6 +83,7 @@ def detect(snapshot: dict) -> list[Anomaly]:
     anomalies.extend(_check_unusual_military_type(snapshot))
     anomalies.extend(_check_military_tanker_surge(snapshot))
     anomalies.extend(_check_tracked_convergence(snapshot))
+    anomalies.extend(_check_uav_concentration(snapshot))
     return anomalies
 
 
@@ -600,5 +602,54 @@ def _check_tracked_convergence(snapshot: dict) -> list[Anomaly]:
                     "distance_km": round(dist, 1),
                 },
             ))
+
+    return results
+
+
+def _check_uav_concentration(snapshot: dict) -> list[Anomaly]:
+    """Rule 10: Multiple UAVs detected in same geographic area.
+
+    Counts UAVs per 2-degree grid cell and flags cells with 2+ UAVs.
+    Severity CRITICAL if 4+, else HIGH.
+    """
+    results = []
+    uavs = snapshot.get("uavs", [])
+
+    # Count UAVs per grid cell
+    grid_counts: dict[str, int] = {}
+    grid_samples: dict[str, list[dict]] = {}
+    for u in uavs:
+        lat, lng = u.get("lat"), u.get("lng")
+        if lat is None or lng is None:
+            continue
+        gk = grid_key(lat, lng, resolution=2)
+        grid_counts[gk] = grid_counts.get(gk, 0) + 1
+        grid_samples.setdefault(gk, []).append(u)
+
+    for gk, count in grid_counts.items():
+        if count < 2:
+            continue
+        sample = grid_samples[gk][0]
+        severity = Severity.CRITICAL if count >= 4 else Severity.HIGH
+        sample_uavs = grid_samples[gk][:5]
+        results.append(Anomaly.create(
+            domain="aircraft",
+            rule="uav_concentration",
+            severity=severity,
+            title=f"UAV concentration: {count} UAVs in {gk}",
+            description=(
+                f"{count} UAVs detected in grid cell {gk}."
+            ),
+            entity_id=f"uav:{gk}",
+            ttl=300,
+            lat=sample.get("lat"),
+            lng=sample.get("lng"),
+            metadata={
+                "grid": gk, "count": count,
+                "callsigns": [u.get("callsign", "?") for u in sample_uavs],
+                "types": [u.get("type", "?") for u in sample_uavs],
+                "countries": [u.get("country", "?") for u in sample_uavs],
+            },
+        ))
 
     return results

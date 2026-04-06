@@ -1,6 +1,6 @@
 export interface Anomaly {
   anomaly_id: string;
-  domain: "aircraft" | "maritime" | "seismic" | "gdelt" | "fires" | "infrastructure" | "cross_domain";
+  domain: string;
   rule: string;
   severity: number; // 1=LOW, 2=MEDIUM, 3=HIGH, 4=CRITICAL
   severity_label: string;

@@ -160,6 +160,8 @@ def update_slow_data():
     with _data_lock:
         _snapshot = {k: v for k, v in latest_data.items()}
     logger.info("Slow-tier update complete.")
+    if _anomaly_engine:
+        _snapshot["active_anomalies"] = _anomaly_engine.get_active_anomalies()
     _run_anomaly_detection("slow", _snapshot)
 
 
