@@ -54,7 +54,7 @@ export default function Home() {
             className="absolute left-0 top-4 z-10 bg-[#141414] border border-[#2a2a2a] border-l-0 rounded-r-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
             title={leftCollapsed ? "Show anomalies" : "Hide anomalies"}
           >
-            {leftCollapsed ? <AlertTriangle size={18} /> : <ChevronLeft size={18} />}
+            {leftCollapsed ? <AlertTriangle size={20} /> : <ChevronLeft size={18} />}
           </button>
           <button
             onClick={() => setRightCollapsed(!rightCollapsed)}
