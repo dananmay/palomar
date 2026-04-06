@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { ArrowLeft, Github } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { API_BASE } from "@/lib/api";
 import type { Anomaly } from "@/types/anomaly";
 
@@ -11,7 +11,6 @@ interface Props {
   onSelect: (id: string) => void;
   onDeselect: () => void;
   status: "connecting" | "connected" | "disconnected";
-  onCollapse?: () => void;
 }
 
 /* ── Palomar Logo SVG ── */
@@ -61,7 +60,7 @@ function timeAgo(ts: number): string {
   return `${Math.floor(seconds / 3600)}h ago`;
 }
 
-export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDeselect, status, onCollapse }: Props) {
+export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDeselect, status }: Props) {
   const [triageRunning, setTriageRunning] = useState(false);
 
   const runTriage = useCallback(async () => {
@@ -102,37 +101,23 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#2a2a2a]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+          <a
+            href="https://github.com/dananmay/palomar"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-[#e5e5e5] hover:text-[#a78bfa] transition-colors"
+          >
             <PalomarLogo />
-            <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Palomar</h1>
-            <a
-              href="https://github.com/dananmay/palomar"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[#555] hover:text-[#a3a3a3] transition-colors"
-            >
-              <Github size={14} />
-            </a>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={runTriage}
-              disabled={triageRunning || anomalies.length === 0}
-              title="Run AI triage"
-              className="text-[10px] px-2 py-1 bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] rounded hover:bg-[#a78bfa]/20 transition-colors disabled:opacity-30"
-            >
-              {triageRunning ? "Running..." : "Triage"}
-            </button>
-            {onCollapse && (
-              <button
-                onClick={onCollapse}
-                title="Collapse sidebar"
-                className="p-1 rounded-md text-[#555] hover:text-[#a3a3a3] transition-colors"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /><polyline points="15 9 12 12 15 15" /></svg>
-              </button>
-            )}
-          </div>
+            <h1 className="text-base font-semibold tracking-tight">Palomar</h1>
+          </a>
+          <button
+            onClick={runTriage}
+            disabled={triageRunning || anomalies.length === 0}
+            title="Run AI triage"
+            className="text-[10px] px-2 py-1 bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] rounded hover:bg-[#a78bfa]/20 transition-colors disabled:opacity-30"
+          >
+            {triageRunning ? "Running..." : "Triage"}
+          </button>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { AlertTriangle, MessageSquare } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import AnomalySidebar from "@/components/AnomalySidebar";
 import ChatSidebar from "@/components/ChatSidebar";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -26,27 +26,13 @@ export default function Home() {
   return (
     <div className="flex h-screen w-screen bg-[#0a0a0a]">
       {/* Left: Anomaly sidebar */}
-      {leftCollapsed ? (
-        <button
-          onClick={() => setLeftCollapsed(false)}
-          className="w-10 h-full flex flex-col items-center pt-4 gap-2 border-r border-[#2a2a2a] bg-[#0a0a0a] hover:bg-[#111] transition-colors"
-          title="Expand anomaly sidebar"
-        >
-          <AlertTriangle size={16} className="text-[#666]" />
-          {anomalies.length > 0 && (
-            <span className="text-[10px] text-[#e5e5e5] bg-[#2a2a2a] rounded-full w-5 h-5 flex items-center justify-center">
-              {anomalies.length}
-            </span>
-          )}
-        </button>
-      ) : (
+      {!leftCollapsed && (
         <AnomalySidebar
           anomalies={anomalies}
           selectedId={selectedId}
           onSelect={setSelectedId}
           onDeselect={() => setSelectedId(null)}
           status={status}
-          onCollapse={() => setLeftCollapsed(true)}
         />
       )}
 
@@ -61,6 +47,22 @@ export default function Home() {
               onCursorMove={handleCursorMove}
             />
           </ErrorBoundary>
+
+          {/* Floating collapse/expand toggles */}
+          <button
+            onClick={() => setLeftCollapsed(!leftCollapsed)}
+            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-[#141414] border border-[#2a2a2a] border-l-0 rounded-r-md p-1.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
+            title={leftCollapsed ? "Show anomalies" : "Hide anomalies"}
+          >
+            {leftCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+          </button>
+          <button
+            onClick={() => setRightCollapsed(!rightCollapsed)}
+            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-[#141414] border border-[#2a2a2a] border-r-0 rounded-l-md p-1.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
+            title={rightCollapsed ? "Show chat" : "Hide chat"}
+          >
+            {rightCollapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+          </button>
         </div>
 
         {/* Coordinate bar */}
@@ -80,19 +82,8 @@ export default function Home() {
       </div>
 
       {/* Right: Chat sidebar */}
-      {rightCollapsed ? (
-        <button
-          onClick={() => setRightCollapsed(false)}
-          className="w-10 h-full flex flex-col items-center pt-4 border-l border-[#2a2a2a] bg-[#0a0a0a] hover:bg-[#111] transition-colors"
-          title="Expand chat sidebar"
-        >
-          <MessageSquare size={16} className="text-[#666]" />
-        </button>
-      ) : (
-        <ChatSidebar
-          selectedAnomalyId={selectedId}
-          onCollapse={() => setRightCollapsed(true)}
-        />
+      {!rightCollapsed && (
+        <ChatSidebar selectedAnomalyId={selectedId} />
       )}
     </div>
   );

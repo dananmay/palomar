@@ -8,12 +8,11 @@ import type { ChatMessage } from "@/types/chat";
 
 interface Props {
   selectedAnomalyId: string | null;
-  onCollapse?: () => void;
 }
 
 const SUGGESTIONS = ["Brief me", "What's most important right now?", "Any cross-domain connections?"];
 
-export default function ChatSidebar({ selectedAnomalyId, onCollapse }: Props) {
+export default function ChatSidebar({ selectedAnomalyId }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -109,18 +108,7 @@ export default function ChatSidebar({ selectedAnomalyId, onCollapse }: Props) {
     <aside className="w-80 h-full flex flex-col border-l border-[#2a2a2a] bg-[#0a0a0a]">
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#2a2a2a]">
-        <div className="flex items-center justify-between">
-          <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Mr. Palomar</h1>
-          {onCollapse && (
-            <button
-              onClick={onCollapse}
-              title="Collapse sidebar"
-              className="p-1 rounded-md text-[#555] hover:text-[#a3a3a3] transition-colors"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="15" y1="3" x2="15" y2="21" /><polyline points="9 9 12 12 9 15" /></svg>
-            </button>
-          )}
-        </div>
+        <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Mr. Palomar</h1>
         <div className="flex items-center gap-2 mt-1">
           <span
             className="w-1.5 h-1.5 rounded-full"
