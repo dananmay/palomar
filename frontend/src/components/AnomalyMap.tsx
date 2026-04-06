@@ -96,7 +96,7 @@ export default function AnomalyMap({ anomalies, selectedId, onSelect, onCursorMo
       onClick={handleClick}
       onMouseMove={handleMouseMove}
     >
-      <NavigationControl position="top-right" showCompass={false} style={{ marginTop: "80px" }} />
+      <NavigationControl position="bottom-right" showCompass={false} style={{ marginBottom: "30px" }} />
       <ScaleControl position="bottom-right" />
 
       <Source id="anomalies" type="geojson" data={geojson}>
