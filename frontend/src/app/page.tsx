@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
+import { AlertTriangle, MessageSquare } from "lucide-react";
 import AnomalySidebar from "@/components/AnomalySidebar";
 import ChatSidebar from "@/components/ChatSidebar";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -14,6 +15,8 @@ export default function Home() {
   const { anomalies, status } = useAnomalyPolling();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { mouseCoords, locationLabel, handleMouseCoords } = useReverseGeocode();
+  const [leftCollapsed, setLeftCollapsed] = useState(false);
+  const [rightCollapsed, setRightCollapsed] = useState(false);
 
   const handleCursorMove = useCallback(
     (lat: number, lng: number) => handleMouseCoords({ lat, lng }),
@@ -23,13 +26,29 @@ export default function Home() {
   return (
     <div className="flex h-screen w-screen bg-[#0a0a0a]">
       {/* Left: Anomaly sidebar */}
-      <AnomalySidebar
-        anomalies={anomalies}
-        selectedId={selectedId}
-        onSelect={setSelectedId}
-        onDeselect={() => setSelectedId(null)}
-        status={status}
-      />
+      {leftCollapsed ? (
+        <button
+          onClick={() => setLeftCollapsed(false)}
+          className="w-10 h-full flex flex-col items-center pt-4 gap-2 border-r border-[#2a2a2a] bg-[#0a0a0a] hover:bg-[#111] transition-colors"
+          title="Expand anomaly sidebar"
+        >
+          <AlertTriangle size={16} className="text-[#666]" />
+          {anomalies.length > 0 && (
+            <span className="text-[10px] text-[#e5e5e5] bg-[#2a2a2a] rounded-full w-5 h-5 flex items-center justify-center">
+              {anomalies.length}
+            </span>
+          )}
+        </button>
+      ) : (
+        <AnomalySidebar
+          anomalies={anomalies}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          onDeselect={() => setSelectedId(null)}
+          status={status}
+          onCollapse={() => setLeftCollapsed(true)}
+        />
+      )}
 
       {/* Center: Map + coordinate bar */}
       <div className="flex-1 flex flex-col min-w-0">
@@ -61,7 +80,20 @@ export default function Home() {
       </div>
 
       {/* Right: Chat sidebar */}
-      <ChatSidebar selectedAnomalyId={selectedId} />
+      {rightCollapsed ? (
+        <button
+          onClick={() => setRightCollapsed(false)}
+          className="w-10 h-full flex flex-col items-center pt-4 border-l border-[#2a2a2a] bg-[#0a0a0a] hover:bg-[#111] transition-colors"
+          title="Expand chat sidebar"
+        >
+          <MessageSquare size={16} className="text-[#666]" />
+        </button>
+      ) : (
+        <ChatSidebar
+          selectedAnomalyId={selectedId}
+          onCollapse={() => setRightCollapsed(true)}
+        />
+      )}
     </div>
   );
 }

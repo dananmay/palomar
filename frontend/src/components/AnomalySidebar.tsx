@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useCallback } from "react";
-import { ArrowLeft, Sparkles } from "lucide-react";
+import { ArrowLeft, Github } from "lucide-react";
 import { API_BASE } from "@/lib/api";
 import type { Anomaly } from "@/types/anomaly";
 
@@ -11,6 +11,27 @@ interface Props {
   onSelect: (id: string) => void;
   onDeselect: () => void;
   status: "connecting" | "connected" | "disconnected";
+  onCollapse?: () => void;
+}
+
+/* ── Palomar Logo SVG ── */
+
+function PalomarLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* Outer circle */}
+      <circle cx="10" cy="10" r="9" stroke="#666" strokeWidth="1" />
+      {/* Middle circle */}
+      <circle cx="10" cy="10" r="5.5" stroke="#888" strokeWidth="0.75" />
+      {/* Inner circle (lens) */}
+      <circle cx="10" cy="10" r="2" fill="#a78bfa" opacity="0.6" />
+      {/* Crosshair lines */}
+      <line x1="10" y1="0.5" x2="10" y2="6" stroke="#666" strokeWidth="0.75" />
+      <line x1="10" y1="14" x2="10" y2="19.5" stroke="#666" strokeWidth="0.75" />
+      <line x1="0.5" y1="10" x2="6" y2="10" stroke="#666" strokeWidth="0.75" />
+      <line x1="14" y1="10" x2="19.5" y2="10" stroke="#666" strokeWidth="0.75" />
+    </svg>
+  );
 }
 
 const SEVERITY_COLORS: Record<number, string> = {
@@ -40,7 +61,7 @@ function timeAgo(ts: number): string {
   return `${Math.floor(seconds / 3600)}h ago`;
 }
 
-export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDeselect, status }: Props) {
+export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDeselect, status, onCollapse }: Props) {
   const [triageRunning, setTriageRunning] = useState(false);
 
   const runTriage = useCallback(async () => {
@@ -81,15 +102,37 @@ export default function AnomalySidebar({ anomalies, selectedId, onSelect, onDese
       {/* Header */}
       <div className="px-5 py-4 border-b border-[#2a2a2a]">
         <div className="flex items-center justify-between">
-          <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Palomar</h1>
-          <button
-            onClick={runTriage}
-            disabled={triageRunning || anomalies.length === 0}
-            title="Run AI triage"
-            className="p-1.5 rounded-md text-[#666] hover:text-[#a78bfa] hover:bg-[#a78bfa]/10 transition-colors disabled:opacity-30 disabled:hover:text-[#666] disabled:hover:bg-transparent"
-          >
-            <Sparkles size={14} className={triageRunning ? "animate-spin" : ""} />
-          </button>
+          <div className="flex items-center gap-2">
+            <PalomarLogo />
+            <h1 className="text-base font-semibold text-[#e5e5e5] tracking-tight">Palomar</h1>
+            <a
+              href="https://github.com/dananmay/palomar"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#555] hover:text-[#a3a3a3] transition-colors"
+            >
+              <Github size={14} />
+            </a>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={runTriage}
+              disabled={triageRunning || anomalies.length === 0}
+              title="Run AI triage"
+              className="text-[10px] px-2 py-1 bg-[#a78bfa]/10 border border-[#a78bfa]/30 text-[#a78bfa] rounded hover:bg-[#a78bfa]/20 transition-colors disabled:opacity-30"
+            >
+              {triageRunning ? "Running..." : "Triage"}
+            </button>
+            {onCollapse && (
+              <button
+                onClick={onCollapse}
+                title="Collapse sidebar"
+                className="p-1 rounded-md text-[#555] hover:text-[#a3a3a3] transition-colors"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" /><line x1="9" y1="3" x2="9" y2="21" /><polyline points="15 9 12 12 15 15" /></svg>
+              </button>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2 mt-1">
           <span
@@ -235,8 +278,8 @@ function DetailView({ anomaly, onBack }: { anomaly: Anomaly; onBack: () => void 
         {anomaly.title}
       </h2>
 
-      {/* AI Highlight reason */}
-      {anomaly.ai_highlighted && anomaly.ai_highlight_reason && (
+      {/* AI Analysis — merged box when highlighted, plain context otherwise */}
+      {anomaly.ai_highlighted && anomaly.ai_highlight_reason ? (
         <div className="mb-4 px-3 py-2.5 bg-[#a78bfa]/10 border border-[#a78bfa]/20 rounded-lg">
           <div className="text-[10px] font-medium uppercase tracking-wider text-[#a78bfa] mb-1">
             Why this matters
@@ -244,11 +287,19 @@ function DetailView({ anomaly, onBack }: { anomaly: Anomaly; onBack: () => void 
           <div className="text-xs text-[#c4b5fd] leading-relaxed">
             {anomaly.ai_highlight_reason}
           </div>
+          {anomaly.ai_context && (
+            <div className="text-xs text-[#a3a3a3]/70 leading-relaxed mt-2 pt-2 border-t border-[#a78bfa]/10">
+              {anomaly.ai_context}
+            </div>
+          )}
+          {anomaly.ai_model && (
+            <div className="text-[10px] text-[#555] mt-1.5">
+              Analyzed by {anomaly.ai_model}
+              {anomaly.ai_analyzed_at ? ` · ${timeAgo(anomaly.ai_analyzed_at)}` : ""}
+            </div>
+          )}
         </div>
-      )}
-
-      {/* AI Context annotation */}
-      {anomaly.ai_context && (
+      ) : anomaly.ai_context ? (
         <div className="mb-4 px-3 py-2.5 bg-[#1a1a1a] border border-[#2a2a2a] rounded-lg">
           <div className="text-xs text-[#a3a3a3] leading-relaxed">
             {anomaly.ai_context}
@@ -260,7 +311,7 @@ function DetailView({ anomaly, onBack }: { anomaly: Anomaly; onBack: () => void 
             </div>
           )}
         </div>
-      )}
+      ) : null}
 
       {/* Description */}
       <p className="text-sm text-[#a3a3a3] leading-relaxed mb-4">
