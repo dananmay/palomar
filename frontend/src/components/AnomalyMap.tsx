@@ -65,11 +65,13 @@ export default function AnomalyMap({ anomalies, selectedId, onSelect, onCursorMo
       if (map) {
         const t = Date.now() / 1000;
         if (map.getLayer('anomaly-critical-pulse')) {
-          map.setPaintProperty('anomaly-critical-pulse', 'circle-radius', 10 + 6 * Math.sin(t * 2));
-          map.setPaintProperty('anomaly-critical-pulse', 'circle-opacity', 0.15 + 0.2 * Math.sin(t * 2));
+          const pulse = 0.5 + 0.5 * Math.sin(t * 2); // 0 to 1
+          map.setPaintProperty('anomaly-critical-pulse', 'circle-radius', 10 + 6 * pulse);
+          map.setPaintProperty('anomaly-critical-pulse', 'circle-opacity', 0.1 + 0.25 * pulse);
         }
         if (map.getLayer('anomaly-selected-glow')) {
-          map.setPaintProperty('anomaly-selected-glow', 'circle-stroke-opacity', 0.3 + 0.3 * Math.sin(t * 3));
+          const glow = 0.5 + 0.5 * Math.sin(t * 3); // 0 to 1
+          map.setPaintProperty('anomaly-selected-glow', 'circle-stroke-opacity', 0.2 + 0.5 * glow);
         }
       }
       frameId = requestAnimationFrame(animate);
