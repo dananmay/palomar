@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, AlertTriangle, MessageSquare } from "lucide-react";
 import AnomalySidebar from "@/components/AnomalySidebar";
 import ChatSidebar from "@/components/ChatSidebar";
 import ErrorBoundary from "@/components/ErrorBoundary";
@@ -51,17 +51,17 @@ export default function Home() {
           {/* Floating collapse/expand toggles */}
           <button
             onClick={() => setLeftCollapsed(!leftCollapsed)}
-            className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-[#141414] border border-[#2a2a2a] border-l-0 rounded-r-md p-1.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
+            className="absolute left-0 top-4 z-10 bg-[#141414] border border-[#2a2a2a] border-l-0 rounded-r-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
             title={leftCollapsed ? "Show anomalies" : "Hide anomalies"}
           >
-            {leftCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
+            {leftCollapsed ? <AlertTriangle size={18} /> : <ChevronLeft size={18} />}
           </button>
           <button
             onClick={() => setRightCollapsed(!rightCollapsed)}
-            className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-[#141414] border border-[#2a2a2a] border-r-0 rounded-l-md p-1.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
+            className="absolute right-0 top-4 z-10 bg-[#141414] border border-[#2a2a2a] border-r-0 rounded-l-lg p-2.5 text-[#666] hover:text-[#e5e5e5] hover:bg-[#1a1a1a] transition-colors"
             title={rightCollapsed ? "Show chat" : "Hide chat"}
           >
-            {rightCollapsed ? <ChevronLeft size={14} /> : <ChevronRight size={14} />}
+            {rightCollapsed ? <MessageSquare size={18} /> : <ChevronRight size={18} />}
           </button>
         </div>
 
